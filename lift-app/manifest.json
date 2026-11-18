@@ -1,0 +1,12 @@
+{
+  "id": "./",
+  "name": "Athena Workout Tracker",
+  "short_name": "Athena",
+  "description": "A local workout tracker.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#070709",
+  "theme_color": "#070709"
+}
