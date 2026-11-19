@@ -730,8 +730,32 @@ const BUILT_IN_EXERCISES = [
   {name:'Treadmill',muscle:'Full Body'},{name:'Stationary Bike',muscle:'Full Body'},{name:'Rowing Machine',muscle:'Full Body'},{name:'Elliptical',muscle:'Full Body'},{name:'Jump Rope',muscle:'Full Body'}
 ];
 
+// Extra muscle tags for compound lifts. Isolation exercises are not listed and keep one tag.
+const BUILT_IN_EXTRA = {
+  'Barbell Bench Press':['Shoulders'], 'Incline Barbell Bench Press':['Shoulders'], 'Decline Barbell Bench Press':['Triceps'],
+  'Dumbbell Bench Press':['Shoulders'], 'Incline Dumbbell Press':['Shoulders'], 'Decline Dumbbell Press':['Triceps'],
+  'Close-Grip Bench Press':['Triceps'], 'Floor Press':['Triceps'], 'Chest Press Machine':['Shoulders'],
+  'Push-Up':['Shoulders'], 'Weighted Push-Up':['Shoulders'], 'Dip':['Triceps'], 'Weighted Dip':['Triceps'],
+  'Chin-Up':['Biceps'],
+  'Barbell Row':['Shoulders'], 'Pendlay Row':['Shoulders'], 'Dumbbell Row':['Shoulders'], 'Chest-Supported Row':['Shoulders'],
+  'Seated Cable Row':['Shoulders'], 'T-Bar Row':['Shoulders'], 'Machine Row':['Shoulders'], 'Inverted Row':['Shoulders'],
+  'Deadlift':['Glutes','Hamstrings'], 'Rack Pull':['Glutes'], 'Back Extension':['Glutes'],
+  'Overhead Press':['Triceps'], 'Seated Dumbbell Shoulder Press':['Triceps'], 'Arnold Press':['Triceps'], 'Machine Shoulder Press':['Triceps'],
+  'Face Pull':['Back'], 'Upright Row':['Back'],
+  'Close-Grip Push-Up':['Chest'], 'Triceps Dip':['Chest'],
+  'Barbell Back Squat':['Glutes'], 'Front Squat':['Glutes'], 'Goblet Squat':['Glutes'], 'Hack Squat':['Glutes'],
+  'Leg Press':['Glutes'], 'Bulgarian Split Squat':['Glutes'], 'Walking Lunge':['Glutes'], 'Reverse Lunge':['Glutes'],
+  'Step-Up':['Glutes'], 'Smith Machine Squat':['Glutes'],
+  'Romanian Deadlift':['Glutes'], 'Stiff-Leg Deadlift':['Glutes'], 'Good Morning':['Glutes','Back'],
+  'Hip Thrust':['Hamstrings'], 'Glute Bridge':['Hamstrings'],
+  "Farmer's Carry":['Back'], 'Suitcase Carry':['Abs']
+};
+
 const BUILT_IN_MUSCLE_MAP = new Map(
-  BUILT_IN_EXERCISES.map(item => [item.name.toLowerCase(), [item.muscle]])
+  BUILT_IN_EXERCISES.map(item => [item.name.toLowerCase(), [item.muscle, ...(BUILT_IN_EXTRA[item.name] || [])]])
+);
+const BUILT_IN_PRIMARY = new Map(
+  BUILT_IN_EXERCISES.map(item => [item.name.toLowerCase(), item.muscle])
 );
 
 // Muscle groups are tags. Every exercise carries a list of them.
@@ -755,8 +779,8 @@ const tagPills = m => cleanMuscles(m).map(x =>
 ).join('');
 
 const defaults = () => ({
-  version:5,
-  exercises:BUILT_IN_EXERCISES.map(item=>({id:uid(),name:item.name,muscles:[item.muscle],custom:false})),
+  version:6,
+  exercises:BUILT_IN_EXERCISES.map(item=>({id:uid(),name:item.name,muscles:[...BUILT_IN_MUSCLE_MAP.get(item.name.toLowerCase())],custom:false})),
   workouts:[],
   sessions:[],
   active:null,
@@ -820,7 +844,7 @@ function normalize(raw) {
       if (e && typeof e === 'object') addLibraryItem(e.name, readMuscles(e), !!e.custom, e.id);
     }
   } else {
-    for (const item of BUILT_IN_EXERCISES) addLibraryItem(item.name, [item.muscle], false);
+    for (const item of BUILT_IN_EXERCISES) addLibraryItem(item.name, BUILT_IN_MUSCLE_MAP.get(item.name.toLowerCase()), false);
   }
 
   for(const w of d.workouts) {
@@ -831,6 +855,20 @@ function normalize(raw) {
         e.muscles = [...lib.muscles];
       }
     }
+  }
+
+  // One-time upgrade for data saved before version 6: give built-in compound lifts their extra tags.
+  // Only entries still on their original single tag change, so tags you set yourself stay as they are.
+  if (!(Number(raw.version) >= 6)) {
+    const upgrade = item => {
+      const key = item.name.trim().toLowerCase();
+      const full = BUILT_IN_MUSCLE_MAP.get(key);
+      if (full && full.length > 1 && item.muscles.length === 1 && item.muscles[0] === BUILT_IN_PRIMARY.get(key)) {
+        item.muscles = [...full];
+      }
+    };
+    d.exercises.forEach(upgrade);
+    d.workouts.forEach(w => w.ex.forEach(upgrade));
   }
 
   const cleanExercise = e => ({
@@ -1538,6 +1576,13 @@ function vHistory() {
   const sessions=db.sessions.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
   const completed=sessions.filter(s=>!s.unfinished);
   const week=completed.filter(s=>Date.now()-new Date(s.date).getTime()<7*86400000);
+  // Average workouts per week over the last 4 weeks. If the first workout is newer than that,
+  // the average spans only the time since then (at least 1 week) so new users are not undercounted.
+  const nowMs=Date.now();
+  const last4w=completed.filter(s=>nowMs-new Date(s.date).getTime()<28*86400000);
+  const firstMs=completed.reduce((m,s)=>{const t=new Date(s.date).getTime();return isNaN(t)?m:Math.min(m,t);},Infinity);
+  const spanDays=completed.length?Math.min(28,Math.max(7,(nowMs-firstMs)/86400000)):28;
+  const perWeek=last4w.length/(spanDays/7);
   const weekSets=doneSets(week);
   const weekVolume=volume(weekSets);
 
@@ -1557,8 +1602,8 @@ function vHistory() {
 
   return `<div class="page-header"><h1>Progress</h1></div>
     <div class="statgrid">
-      <div class="stat"><strong>${completed.length}</strong><span>Workouts</span></div>
-      <div class="stat"><strong>${week.length}</strong><span>Last 7 days</span></div>
+      <div class="stat"><strong>${completed.length}</strong><span>Workouts (total)</span></div>
+      <div class="stat"><strong>${perWeek.toFixed(1)}</strong><span>Workouts / week (4w)</span></div>
       <div class="stat"><strong>${weekSets.length}</strong><span>Working sets (7d)</span></div>
       <div class="stat"><strong>${Math.round(weekVolume).toLocaleString()}</strong><span>Volume (lb, 7d)</span></div>
     </div>
@@ -1763,7 +1808,7 @@ function beep() {
 }
 
 async function exportData() {
-  const data=JSON.stringify({...db,version:5},null,2);
+  const data=JSON.stringify({...db,version:6},null,2);
   const file=new File([data],
     'lift-backup-'+new Date().toISOString().slice(0,10)+'.json',
     {type:'application/json'}
