@@ -731,14 +731,32 @@ const BUILT_IN_EXERCISES = [
 ];
 
 const BUILT_IN_MUSCLE_MAP = new Map(
-  BUILT_IN_EXERCISES.map(item => [item.name.toLowerCase(), item.muscle])
+  BUILT_IN_EXERCISES.map(item => [item.name.toLowerCase(), [item.muscle]])
 );
 
-const cleanMuscle = m => MUSCLES.includes(m) ? m : 'Other';
+// Muscle groups are tags. Every exercise carries a list of them.
+const cleanMuscles = m => {
+  const list = (Array.isArray(m) ? m : (m ? [m] : []))
+    .map(x => String(x))
+    .filter(x => MUSCLES.includes(x));
+  const uniq = [...new Set(list)];
+  const tags = uniq.length > 1 ? uniq.filter(x => x !== 'Other') : uniq;
+  return tags.length ? tags : ['Other'];
+};
+// Reads tags from new data (muscles array) or from older backups (single muscle string).
+const readMuscles = o => cleanMuscles(o && (Array.isArray(o.muscles) ? o.muscles : o.muscle));
+const onlyOther = m => m.length === 1 && m[0] === 'Other';
+const toggleTag = (list, m) => {
+  if (m === 'Other') return ['Other'];
+  return cleanMuscles(list.includes(m) ? list.filter(x => x !== m) : [...list, m]);
+};
+const tagPills = m => cleanMuscles(m).map(x =>
+  `<span class="pill acc" style="padding:2px 8px;font-size:10px">${esc(x)}</span>`
+).join('');
 
 const defaults = () => ({
-  version:4,
-  exercises:BUILT_IN_EXERCISES.map(item=>({id:uid(),name:item.name,muscle:item.muscle,custom:false})),
+  version:5,
+  exercises:BUILT_IN_EXERCISES.map(item=>({id:uid(),name:item.name,muscles:[item.muscle],custom:false})),
   workouts:[],
   sessions:[],
   active:null,
@@ -747,13 +765,17 @@ const defaults = () => ({
   timerEnd:null,
   rest:[60,90,120,180],
   restSel:90,
-  bodyweight:[]
+  bodyweight:[],
+  defaultSets:3
 });
 
 function normalize(raw) {
   const d = defaults();
   if (!raw || typeof raw !== 'object') return d;
   d.exercises=[];
+
+  const savedDefaultSets = Math.round(Number(raw.defaultSets));
+  d.defaultSets = savedDefaultSets >= 1 && savedDefaultSets <= 20 ? savedDefaultSets : 3;
 
   d.workouts = Array.isArray(raw.workouts)
     ? raw.workouts.filter(Boolean).map(w => ({
@@ -765,28 +787,29 @@ function normalize(raw) {
           libraryId:String(e.libraryId || ''),
           name:String(e.name || ''),
           desc:String(e.desc || ''),
-          muscle:cleanMuscle(String(e.muscle || 'Other')),
+          muscles:readMuscles(e),
           target:String(e.target || '8-12'),
-          sets:Math.max(1,Math.min(20,Number(e.sets)||3))
+          sets:Math.max(1,Math.min(20,Number(e.sets)||d.defaultSets))
         })) : []
       })) : [];
 
   const libraryByName = new Map();
-  const addLibraryItem = (name, muscle=null, custom=false, id=null) => {
+  const addLibraryItem = (name, muscles=null, custom=false, id=null) => {
     const cleanName=String(name||'').trim();
     if(!cleanName) return null;
     const key=cleanName.toLowerCase();
-    const resolvedMuscle = (muscle && MUSCLES.includes(muscle) && muscle !== 'Other')
-      ? muscle
-      : (BUILT_IN_MUSCLE_MAP.get(key) || (muscle && MUSCLES.includes(muscle) ? muscle : 'Other'));
+    const given = cleanMuscles(muscles);
+    const resolvedMuscles = !onlyOther(given)
+      ? given
+      : [...(BUILT_IN_MUSCLE_MAP.get(key) || given)];
     if(libraryByName.has(key)) {
       const existing = libraryByName.get(key);
-      if (existing.muscle === 'Other' && resolvedMuscle !== 'Other') {
-        existing.muscle = resolvedMuscle;
+      if (onlyOther(existing.muscles) && !onlyOther(resolvedMuscles)) {
+        existing.muscles = resolvedMuscles;
       }
       return existing;
     }
-    const item={id:String(id||uid()),name:cleanName,muscle:resolvedMuscle,custom:!!custom};
+    const item={id:String(id||uid()),name:cleanName,muscles:resolvedMuscles,custom:!!custom};
     libraryByName.set(key,item);
     d.exercises.push(item);
     return item;
@@ -794,18 +817,18 @@ function normalize(raw) {
 
   if (Array.isArray(raw.exercises)) {
     for (const e of raw.exercises) {
-      if (e && typeof e === 'object') addLibraryItem(e.name, e.muscle, !!e.custom, e.id);
+      if (e && typeof e === 'object') addLibraryItem(e.name, readMuscles(e), !!e.custom, e.id);
     }
   } else {
-    for (const item of BUILT_IN_EXERCISES) addLibraryItem(item.name, item.muscle, false);
+    for (const item of BUILT_IN_EXERCISES) addLibraryItem(item.name, [item.muscle], false);
   }
 
   for(const w of d.workouts) {
     for(const e of w.ex) {
-      const lib=addLibraryItem(e.name, e.muscle, true);
+      const lib=addLibraryItem(e.name, e.muscles, true);
       e.libraryId=lib?.id || '';
-      if ((!e.muscle || e.muscle === 'Other') && lib && lib.muscle !== 'Other') {
-        e.muscle = lib.muscle;
+      if (onlyOther(e.muscles) && lib && !onlyOther(lib.muscles)) {
+        e.muscles = [...lib.muscles];
       }
     }
   }
@@ -813,7 +836,7 @@ function normalize(raw) {
   const cleanExercise = e => ({
     exId:String(e.exId || e.id || uid()),
     name:String(e.name || ''),
-    muscle:String(e.muscle || 'Other'),
+    muscles:readMuscles(e),
     note:String(e.note || ''),
     sets:Array.isArray(e.sets) ? e.sets.filter(Boolean).map(s => ({
       w:String(s.w ?? ''),
@@ -870,7 +893,7 @@ function normalize(raw) {
       const match=template?.ex.find(x=>
         x.name.trim().toLowerCase()===e.name.trim().toLowerCase()
       );
-      if (!e.muscle || e.muscle==='Other') e.muscle=match?.muscle || 'Other';
+      if (onlyOther(e.muscles) && match) e.muscles=[...match.muscles];
       e.sets=e.sets.map(x=>({...x,warm:!!x.warm}));
     }
   }
@@ -942,7 +965,7 @@ function startSession(id) {
     ex:w.ex.map(e=>({
       exId:e.id,
       name:e.name,
-      muscle:e.muscle || 'Other',
+      muscles:[...cleanMuscles(e.muscles)],
       note:'',
       sets:Array.from({length:e.sets},()=>blank(false))
     }))
@@ -997,7 +1020,7 @@ function updateTemplateFromSession(a) {
       libraryId: match?.libraryId || db.exercises.find(x=>x.name.toLowerCase()===se.name.trim().toLowerCase())?.id || '',
       name: se.name,
       desc: match ? match.desc : '',
-      muscle: se.muscle || match?.muscle || 'Other',
+      muscles: [...cleanMuscles(se.muscles || match?.muscles)],
       target: match ? match.target : '8-12',
       sets: Math.max(1, workSets)
     };
@@ -1112,7 +1135,7 @@ function getPRs() {
         if(!set.done || set.warm) continue;
         const key=e.exId || e.name;
         if(!records[key]) records[key]={
-          name:e.name,weight:0,e1rm:0,volume:0,muscle:e.muscle
+          name:e.name,weight:0,e1rm:0,volume:0,muscles:e.muscles
         };
         const p=records[key];
         p.weight=Math.max(p.weight,Number(set.w)||0);
@@ -1186,17 +1209,13 @@ function vEdit() {
           <div class="sp" style="font-weight:650">${esc(e.name||'Choose an exercise')}</div>
           <button class="btn sm alt" data-a="picktemplate" data-i="${i}">Choose</button>
         </div>
-        <div class="row" style="gap:10px">
-          <div class="sp">
-            <label>Muscle group</label>
-            <select data-f="muscle" data-i="${i}">
-              ${MUSCLES.map(m=>`<option ${e.muscle===m?'selected':''}>${m}</option>`).join('')}
-            </select>
-          </div>
-          <div style="width:110px">
-            <label>Target reps</label>
-            <input data-f="target" data-i="${i}" value="${esc(e.target||'8-12')}" placeholder="8-12">
-          </div>
+        <label>Muscle groups</label>
+        <div class="chips" style="margin-top:0">
+          ${MUSCLES.map(m=>`<button class="chip ${(e.muscles||[]).includes(m)?'on':''}" data-a="tagex" data-i="${i}" data-m="${m}">${m}</button>`).join('')}
+        </div>
+        <div style="width:110px">
+          <label>Target reps</label>
+          <input data-f="target" data-i="${i}" value="${esc(e.target||'8-12')}" placeholder="8-12">
         </div>
         <label>Form cues / notes</label>
         <textarea data-f="exdesc" data-i="${i}" rows="2" placeholder="Optional setup or tempo cues">${esc(e.desc)}</textarea>
@@ -1244,7 +1263,7 @@ function vSession() {
         <div class="row" style="align-items:flex-start">
           <div class="sp">
             <h2>${esc(e.name||'Exercise')}</h2>
-            <div class="small" style="margin-top:2px">${esc(e.muscle||'Other')} · Target ${esc(template?.target||'8-12')} reps</div>
+            <div class="small" style="margin-top:2px">${esc(cleanMuscles(e.muscles).join(', '))} · Target ${esc(template?.target||'8-12')} reps</div>
           </div>
           <button class="btn sm danger" data-a="rmex" data-e="${ei}" title="Remove exercise">✕</button>
         </div>
@@ -1281,8 +1300,8 @@ function vAddEx() {
   const inSession=new Set(a.ex.map(e=>(e.name||'').trim().toLowerCase()));
   const items=db.exercises
     .filter(e=>!inSession.has(e.name.toLowerCase()))
-    .filter(e=>mf==='All' || (mf==='Custom' ? !!e.custom : (e.muscle||'Other')===mf))
-    .filter(e=>!q || e.name.toLowerCase().includes(q) || (e.muscle||'Other').toLowerCase().includes(q) || (e.custom && 'custom'.includes(q)))
+    .filter(e=>mf==='All' || (mf==='Custom' ? !!e.custom : (e.muscles||['Other']).includes(mf)))
+    .filter(e=>!q || e.name.toLowerCase().includes(q) || (e.muscles||['Other']).join(' ').toLowerCase().includes(q) || (e.custom && 'custom'.includes(q)))
     .sort((a,b)=>a.name.localeCompare(b.name));
   return `<div class="page-header">
       <button class="btn sm ghost" data-a="backsession">${ICONS.back} Workout</button>
@@ -1298,22 +1317,23 @@ function vAddEx() {
       <div class="small" style="margin-top:10px">Search or filter the library, or create a new exercise below.</div>
       <label>New exercise name</label>
       <input id="customexname" placeholder="e.g. Cable Fly">
-      <div class="row" style="gap:10px;margin-top:8px">
-        <div class="sp"><label style="margin-top:0">Muscle group</label><select id="customexmuscle">${MUSCLES.map(m=>`<option ${mf!=='All'&&mf!=='Custom'&&mf===m?'selected':''}>${m}</option>`).join('')}</select></div>
-        <div style="width:100px"><label style="margin-top:0">Sets</label><input id="customexsets" type="number" min="1" max="20" value="3"></div>
+      <label>Muscle groups</label>
+      <div class="chips" id="customextags" data-tags style="margin-top:0">
+        ${MUSCLES.map(m=>`<button class="chip ${(mf!=='All'&&mf!=='Custom'?mf===m:m==='Other')?'on':''}" data-a="tagchip" data-m="${m}">${m}</button>`).join('')}
       </div>
+      <div style="width:100px"><label>Sets</label><input id="customexsets" type="number" min="1" max="20" value="${db.defaultSets}"></div>
       <button class="btn sm alt" data-a="addcustomex" style="margin-top:12px">${ICONS.plus} Add new exercise</button>
     </div>
     <div class="section-label">${items.length} matching exercises</div>
-    ${items.map(e=>`<div class="card"><div class="row"><div class="sp"><b>${esc(e.name)}</b><div class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="pill acc" style="padding:2px 8px;font-size:10px">${esc(e.muscle||'Other')}</span>${e.custom?'<span class="pill" style="padding:2px 8px;font-size:10px;background:var(--warm-soft);border-color:rgba(245,158,11,0.35);color:var(--warm)">Custom</span>':''}</div></div><button class="btn sm" data-a="addlibrarysession" data-id="${e.id}">${ICONS.plus} Add</button></div></div>`).join('')||'<div class="card empty">No matching exercises. Create one above to add it to your library.</div>'}`;
+    ${items.map(e=>`<div class="card"><div class="row"><div class="sp"><b>${esc(e.name)}</b><div class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap">${tagPills(e.muscles)}${e.custom?'<span class="pill" style="padding:2px 8px;font-size:10px;background:var(--warm-soft);border-color:rgba(245,158,11,0.35);color:var(--warm)">Custom</span>':''}</div></div><button class="btn sm" data-a="addlibrarysession" data-id="${e.id}">${ICONS.plus} Add</button></div></div>`).join('')||'<div class="card empty">No matching exercises. Create one above to add it to your library.</div>'}`;
 }
 
 function vLibrary() {
   const q=(view.search||'').trim().toLowerCase();
   const mf=view.muscleFilter||'All';
   const items=db.exercises
-    .filter(e=>mf==='All' || (mf==='Custom' ? !!e.custom : (e.muscle||'Other')===mf))
-    .filter(e=>!q || e.name.toLowerCase().includes(q) || (e.muscle||'Other').toLowerCase().includes(q) || (e.custom && 'custom'.includes(q)))
+    .filter(e=>mf==='All' || (mf==='Custom' ? !!e.custom : (e.muscles||['Other']).includes(mf)))
+    .filter(e=>!q || e.name.toLowerCase().includes(q) || (e.muscles||['Other']).join(' ').toLowerCase().includes(q) || (e.custom && 'custom'.includes(q)))
     .sort((a,b)=>a.name.localeCompare(b.name));
   return `<div class="page-header">
       <h1>Exercise Library</h1>
@@ -1328,23 +1348,23 @@ function vLibrary() {
       <div class="small" style="margin-top:10px">${db.exercises.length} exercises saved. Edit or delete any exercise in your library.</div>
     </div>
     <div class="section-label">${items.length} exercises</div>
-    ${items.map(e=>`<div class="card"><div class="row"><div class="sp"><b>${esc(e.name)}</b><div class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="pill acc" style="padding:2px 8px;font-size:10px">${esc(e.muscle||'Other')}</span>${e.custom?'<span class="pill" style="padding:2px 8px;font-size:10px;background:var(--warm-soft);border-color:rgba(245,158,11,0.35);color:var(--warm)">Custom</span>':''}</div></div><button class="btn sm ghost" data-a="editlibrary" data-id="${e.id}">Edit</button><button class="btn sm danger" data-a="deletelibraryitem" data-id="${e.id}">Delete</button></div></div>`).join('')||'<div class="card empty">No exercises match your search or muscle filter.</div>'}`;
+    ${items.map(e=>`<div class="card"><div class="row"><div class="sp"><b>${esc(e.name)}</b><div class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap">${tagPills(e.muscles)}${e.custom?'<span class="pill" style="padding:2px 8px;font-size:10px;background:var(--warm-soft);border-color:rgba(245,158,11,0.35);color:var(--warm)">Custom</span>':''}</div></div><button class="btn sm ghost" data-a="editlibrary" data-id="${e.id}">Edit</button><button class="btn sm danger" data-a="deletelibraryitem" data-id="${e.id}">Delete</button></div></div>`).join('')||'<div class="card empty">No exercises match your search or muscle filter.</div>'}`;
 }
 
 function vLibraryEdit() {
   const e=db.exercises.find(x=>x.id===view.exerciseId);
   const isNew=!e;
-  const currentMuscle=e?.muscle || (view.muscleFilter && view.muscleFilter!=='All' && view.muscleFilter!=='Custom' ? view.muscleFilter : 'Other');
+  const currentMuscles=e ? cleanMuscles(e.muscles) : cleanMuscles(view.muscleFilter && view.muscleFilter!=='All' && view.muscleFilter!=='Custom' ? view.muscleFilter : 'Other');
   return `<div class="page-header"><button class="btn sm ghost" data-a="libraryback">${ICONS.back} Library</button><span class="pill">${isNew?'New exercise':'Edit exercise'}</span></div>
     <h1 style="margin-bottom:14px">${isNew?'Add Exercise':'Edit Exercise'}</h1>
     <div class="card">
       <label style="margin-top:0">Exercise name</label>
       <input id="libraryname" maxlength="80" value="${esc(e?.name||'')}" placeholder="e.g. Single-Arm Cable Row" autofocus>
-      <label>Primary muscle group</label>
-      <select id="librarymuscle">
-        ${MUSCLES.map(m=>`<option ${currentMuscle===m?'selected':''}>${m}</option>`).join('')}
-      </select>
-      <div class="small" style="margin-top:8px">Exercise names and muscle groups are shared across your workout templates and active workout picker.</div>
+      <label>Muscle groups</label>
+      <div class="chips" id="librarytags" data-tags style="margin-top:0">
+        ${MUSCLES.map(m=>`<button class="chip ${currentMuscles.includes(m)?'on':''}" data-a="tagchip" data-m="${m}">${m}</button>`).join('')}
+      </div>
+      <div class="small" style="margin-top:8px">Tap every muscle group this exercise works. Exercise names and muscle groups are shared across your workout templates and active workout picker.</div>
       <button class="btn block" data-a="savelibrary" style="margin-top:16px">Save to Library</button>
       ${!isNew?'<button class="btn danger block" data-a="deletelibrary" style="margin-top:8px">Delete exercise</button>':''}
     </div>`;
@@ -1358,8 +1378,8 @@ function vLibraryPicker() {
   const inWorkout=new Set(w.ex.map(e=>(e.name||'').trim().toLowerCase()));
   const items=db.exercises
     .filter(e=>!inWorkout.has(e.name.toLowerCase()))
-    .filter(e=>mf==='All' || (mf==='Custom' ? !!e.custom : (e.muscle||'Other')===mf))
-    .filter(e=>!q || e.name.toLowerCase().includes(q) || (e.muscle||'Other').toLowerCase().includes(q) || (e.custom && 'custom'.includes(q)))
+    .filter(e=>mf==='All' || (mf==='Custom' ? !!e.custom : (e.muscles||['Other']).includes(mf)))
+    .filter(e=>!q || e.name.toLowerCase().includes(q) || (e.muscles||['Other']).join(' ').toLowerCase().includes(q) || (e.custom && 'custom'.includes(q)))
     .sort((a,b)=>a.name.localeCompare(b.name));
   const isSwapping=view.editingIndex!==null && view.editingIndex!==undefined;
   return `<div class="page-header"><button class="btn sm ghost" data-a="backedit">${ICONS.back} Workout</button><span class="pill ${isSwapping?'':'acc num'}">${isSwapping?'Choose exercise':w.ex.length+' in workout'}</span></div>
@@ -1373,7 +1393,7 @@ function vLibraryPicker() {
       <button class="btn sm alt" data-a="newlibraryfromtemplate" style="margin-top:12px">${ICONS.plus} Create exercise</button>
     </div>
     <div class="section-label">${items.length} matching exercises</div>
-    ${items.map(e=>`<div class="card"><div class="row"><div class="sp"><b>${esc(e.name)}</b><div class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="pill acc" style="padding:2px 8px;font-size:10px">${esc(e.muscle||'Other')}</span>${e.custom?'<span class="pill" style="padding:2px 8px;font-size:10px;background:var(--warm-soft);border-color:rgba(245,158,11,0.35);color:var(--warm)">Custom</span>':''}</div></div><button class="btn sm" data-a="selectlibrarytemplate" data-id="${e.id}">${ICONS.plus} Add</button></div></div>`).join('')||'<div class="card empty">No matches. Create a new exercise to add it to your library.</div>'}`;
+    ${items.map(e=>`<div class="card"><div class="row"><div class="sp"><b>${esc(e.name)}</b><div class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap">${tagPills(e.muscles)}${e.custom?'<span class="pill" style="padding:2px 8px;font-size:10px;background:var(--warm-soft);border-color:rgba(245,158,11,0.35);color:var(--warm)">Custom</span>':''}</div></div><button class="btn sm" data-a="selectlibrarytemplate" data-id="${e.id}">${ICONS.plus} Add</button></div></div>`).join('')||'<div class="card empty">No matches. Create a new exercise to add it to your library.</div>'}`;
 }
 
 function vEditsess() {
@@ -1395,7 +1415,7 @@ function vEditsess() {
       let workIdx=0;
       return `<div class="card">
         <h2>${esc(e.name||'Exercise')}</h2>
-        <div class="small" style="margin-top:2px">${esc(e.muscle||'Other')}</div>
+        <div class="small" style="margin-top:2px">${esc(cleanMuscles(e.muscles).join(', '))}</div>
         <textarea data-f="esexnote" data-e="${ei}" rows="1" placeholder="Exercise note..." style="margin-top:10px">${esc(e.note)}</textarea>
         <div class="setgrid head"><span>Set</span><span>lbs</span><span>Reps</span><span>RIR</span><span>Done</span></div>
         ${e.sets.map((s,si)=>{
@@ -1517,15 +1537,19 @@ function vCalendar() {
 function vHistory() {
   const sessions=db.sessions.slice().sort((a,b)=>new Date(b.date)-new Date(a.date));
   const completed=sessions.filter(s=>!s.unfinished);
-  const sets=doneSets(completed);
   const week=completed.filter(s=>Date.now()-new Date(s.date).getTime()<7*86400000);
-  const totalVolume=volume(sets);
+  const weekSets=doneSets(week);
+  const weekVolume=volume(weekSets);
 
+  // Every muscle tag on an exercise gets credit for each working set. Muscles with zero sets are left out.
   const muscleVolume={};
   for(const s of week) {
     for(const e of s.ex) {
       const n=e.sets.filter(x=>x.done&&!x.warm).length;
-      muscleVolume[e.muscle||'Other']=(muscleVolume[e.muscle||'Other']||0)+n;
+      if(!n) continue;
+      for(const m of cleanMuscles(e.muscles)) {
+        muscleVolume[m]=(muscleVolume[m]||0)+n;
+      }
     }
   }
 
@@ -1535,8 +1559,8 @@ function vHistory() {
     <div class="statgrid">
       <div class="stat"><strong>${completed.length}</strong><span>Workouts</span></div>
       <div class="stat"><strong>${week.length}</strong><span>Last 7 days</span></div>
-      <div class="stat"><strong>${sets.length}</strong><span>Working sets</span></div>
-      <div class="stat"><strong>${Math.round(totalVolume).toLocaleString()}</strong><span>Volume (lb)</span></div>
+      <div class="stat"><strong>${weekSets.length}</strong><span>Working sets (7d)</span></div>
+      <div class="stat"><strong>${Math.round(weekVolume).toLocaleString()}</strong><span>Volume (lb, 7d)</span></div>
     </div>
 
     <div style="margin-top:12px">${vCalendar()}</div>
@@ -1547,7 +1571,7 @@ function vHistory() {
         <div class="row exercise">
           <div class="sp">
             <b>${esc(p.name)}</b>
-            <div class="small">${esc(p.muscle||'Other')}</div>
+            <div class="small">${esc(cleanMuscles(p.muscles).join(', '))}</div>
           </div>
           <div style="text-align:right">
             <b class="num">${p.weight} lb</b>
@@ -1592,7 +1616,7 @@ function vHistory() {
         ${s.note?`<p class="mute" style="margin-top:10px">${esc(s.note)}</p>`:''}
         ${s.ex.map(e=>`
           <div class="exercise">
-            <b>${esc(e.name)}</b> <span class="small">· ${esc(e.muscle||'Other')}</span>
+            <b>${esc(e.name)}</b> <span class="small">· ${esc(cleanMuscles(e.muscles).join(', '))}</span>
             ${e.note?`<div class="mute" style="margin-top:4px">${esc(e.note)}</div>`:''}
             ${e.sets.map((x,i)=>`
               <div class="small num" style="margin-top:3px">${x.warm?'Warm-up':'Set '+(i+1)}: ${esc(x.w||'—')} lb × ${esc(x.r||'—')} ${x.done?'':'(skipped)'}</div>
@@ -1615,8 +1639,19 @@ function vSettings() {
       <div class="small num" style="margin-top:8px">Default rest: ${fmt(db.restSel)}</div>
     </div>
     <div class="card">
+      <h2>Default sets</h2>
+      <div class="small" style="margin:4px 0 10px">Starting number of working sets when you add an exercise to a routine or a workout. Existing routines are not changed.</div>
+      <div class="row">
+        <span class="mute">Sets per exercise</span>
+        <span class="sp"></span>
+        <button class="btn sm ghost" data-a="defsets" data-d="-1" ${db.defaultSets<=1?'disabled':''}>−</button>
+        <b class="num" style="min-width:24px;text-align:center">${db.defaultSets}</b>
+        <button class="btn sm ghost" data-a="defsets" data-d="1" ${db.defaultSets>=20?'disabled':''}>+</button>
+      </div>
+    </div>
+    <div class="card">
       <h2>Backup & restore</h2>
-      <p class="mute">Export a JSON archive containing your exercise library, workout routines, session history, active workouts, and bodyweight logs.</p>
+      <p class="mute">Export a JSON archive containing your exercise library, workout routines, session history, active workouts, bodyweight logs, and settings.</p>
       <div class="inline-actions">
         <button class="btn sm" data-a="export">Export JSON</button>
         <button class="btn sm ghost" data-a="import">Import JSON</button>
@@ -1691,26 +1726,44 @@ function startTimer(sec) {
   } catch(e) {}
 }
 
-function beep() {
-  try {
-    audio=audio||new(window.AudioContext||window.webkitAudioContext)();
-    audio.resume();
-    const t=audio.currentTime+.02;
+// One short bell-like ding. A quiet octave overtone gives it a bit of ring.
+function ding(t) {
+  for(const [freq,peak] of [[1046.5,.3],[2093,.07]]) {
     const o=audio.createOscillator();
     const g=audio.createGain();
-    o.frequency.value=880;
-    g.gain.setValueAtTime(.25,t);
-    g.gain.exponentialRampToValueAtTime(.0001,t+1);
+    o.type='sine';
+    o.frequency.value=freq;
+    g.gain.setValueAtTime(.0001,t);
+    g.gain.exponentialRampToValueAtTime(peak,t+.005);
+    g.gain.exponentialRampToValueAtTime(.0001,t+.25);
     o.connect(g);
     g.connect(audio.destination);
     o.start(t);
-    o.stop(t+1.1);
+    o.stop(t+.3);
+  }
+}
+
+// Three dings in quick succession when the rest timer ends.
+function beep() {
+  try {
+    audio=audio||new(window.AudioContext||window.webkitAudioContext)();
+    const play=()=>{
+      const t=audio.currentTime+.02;
+      for(let i=0;i<3;i++) ding(t+i*.16);
+    };
+    if(audio.state==='running') {
+      play();
+    } else {
+      const p=audio.resume();
+      if(p && p.then) p.then(play).catch(()=>{});
+      else play();
+    }
   } catch(e) {}
-  if(navigator.vibrate) navigator.vibrate([180,100,180]);
+  if(navigator.vibrate) navigator.vibrate([90,70,90,70,90]);
 }
 
 async function exportData() {
-  const data=JSON.stringify({...db,version:4},null,2);
+  const data=JSON.stringify({...db,version:5},null,2);
   const file=new File([data],
     'lift-backup-'+new Date().toISOString().slice(0,10)+'.json',
     {type:'application/json'}
@@ -1731,6 +1784,20 @@ async function exportData() {
   a.download=file.name;
   a.click();
   setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+function toggleTagChip(btn) {
+  const box=btn && btn.closest('[data-tags]');
+  if(!box) return;
+  const chips=[...box.querySelectorAll('.chip')];
+  const cur=chips.filter(c=>c.classList.contains('on')).map(c=>c.dataset.m);
+  const next=toggleTag(cur,btn.dataset.m);
+  chips.forEach(c=>c.classList.toggle('on',next.includes(c.dataset.m)));
+}
+
+function pickedTags(sel) {
+  const box=$(sel);
+  return cleanMuscles(box ? [...box.querySelectorAll('.chip.on')].map(c=>c.dataset.m) : []);
 }
 
 function act(a,d,event) {
@@ -1820,7 +1887,7 @@ function act(a,d,event) {
         ...src,
         id:uid(),
         name:src.name+' (copy)',
-        ex:src.ex.map(e=>({...e,id:uid()}))
+        ex:src.ex.map(e=>({...e,id:uid(),muscles:[...cleanMuscles(e.muscles)]}))
       });
       break;
     }
@@ -1855,9 +1922,8 @@ function act(a,d,event) {
 
     case 'savelibrary': {
       const input=$('#libraryname');
-      const muscleInput=$('#librarymuscle');
       const name=(input?.value||'').trim();
-      const muscle=cleanMuscle(muscleInput?.value||'Other');
+      const muscles=pickedTags('#librarytags');
       if(!name) { alert('Enter an exercise name.'); return; }
       const duplicate=db.exercises.find(x=>x.id!==view.exerciseId&&x.name.toLowerCase()===name.toLowerCase());
       if(duplicate) { alert('That exercise is already in your library.'); return; }
@@ -1865,20 +1931,20 @@ function act(a,d,event) {
       if(existing) {
         const oldName=existing.name;
         existing.name=name;
-        existing.muscle=muscle;
+        existing.muscles=[...muscles];
         for(const workout of db.workouts) for(const entry of workout.ex) {
           if(entry.libraryId===existing.id || entry.name.toLowerCase()===oldName.toLowerCase()) {
             entry.name=name;
-            entry.muscle=muscle;
+            entry.muscles=[...muscles];
           }
         }
         if(db.active) for(const entry of db.active.ex) {
           if(entry.exId===existing.id || entry.name.toLowerCase()===oldName.toLowerCase()) {
             entry.name=name;
-            entry.muscle=muscle;
+            entry.muscles=[...muscles];
           }
         }
-      } else db.exercises.push({id:uid(),name,muscle,custom:true});
+      } else db.exercises.push({id:uid(),name,muscles:[...muscles],custom:true});
       const destination=view.returnTo||'library';
       const destinationId=view.id;
       view=destination==='library'
@@ -1913,7 +1979,7 @@ function act(a,d,event) {
     case 'selectlibrarytemplate': {
       const item=db.exercises.find(x=>x.id===d.id);
       if(!item||!w) break;
-      const newEntry={id:uid(),libraryId:item.id,name:item.name,desc:'',muscle:cleanMuscle(item.muscle),target:'8-12',sets:3};
+      const newEntry={id:uid(),libraryId:item.id,name:item.name,desc:'',muscles:[...cleanMuscles(item.muscles)],target:'8-12',sets:db.defaultSets};
       if(view.editingIndex!==null && view.editingIndex!==undefined) {
         w.ex[view.editingIndex]=newEntry;
         view={t:'edit',id:w.id};
@@ -1931,9 +1997,9 @@ function act(a,d,event) {
       sess.ex.push({
         exId:templateEntry?.id||item.id,
         name:item.name,
-        muscle:templateEntry?.muscle || cleanMuscle(item.muscle),
+        muscles:[...cleanMuscles(templateEntry?.muscles || item.muscles)],
         note:'',
-        sets:Array.from({length:templateEntry?.sets||3},()=>blank(false))
+        sets:Array.from({length:templateEntry?.sets||db.defaultSets},()=>blank(false))
       });
       view={t:'addexsess',search:view.search||'',muscleFilter:view.muscleFilter||'All'};
       break;
@@ -1941,6 +2007,21 @@ function act(a,d,event) {
 
     case 'addex':
       view={t:'picktemplate',id:w.id,search:'',muscleFilter:'All'};
+      break;
+
+    case 'tagex': {
+      const e=w?.ex[Number(d.i)];
+      if(!e) break;
+      e.muscles=toggleTag(cleanMuscles(e.muscles),d.m);
+      break;
+    }
+
+    case 'tagchip':
+      toggleTagChip(event && event.target.closest('[data-a]'));
+      return;
+
+    case 'defsets':
+      db.defaultSets=Math.min(20,Math.max(1,db.defaultSets+Number(d.d)));
       break;
 
     case 'sets': {
@@ -2055,7 +2136,7 @@ function act(a,d,event) {
         sess.ex.push({
           exId: found.id,
           name: found.name,
-          muscle: found.muscle || 'Other',
+          muscles: [...cleanMuscles(found.muscles)],
           note: '',
           sets: Array.from({length: found.sets}, () => blank(false))
         });
@@ -2066,24 +2147,23 @@ function act(a,d,event) {
 
     case 'addcustomex': {
       const nameInput = $('#customexname');
-      const muscleInput = $('#customexmuscle');
       const setsInput = $('#customexsets');
       const name = nameInput?.value.trim();
       if(!name) {
         alert('Enter an exercise name.');
         return;
       }
-      const muscle = cleanMuscle(muscleInput?.value || 'Other');
-      const numSets = Math.max(1, Math.min(20, Number(setsInput?.value) || 3));
+      const muscles = pickedTags('#customextags');
+      const numSets = Math.max(1, Math.min(20, Number(setsInput?.value) || db.defaultSets));
       let libraryItem=db.exercises.find(x=>x.name.toLowerCase()===name.toLowerCase());
       if(!libraryItem) {
-        libraryItem={id:uid(),name,muscle,custom:true};
+        libraryItem={id:uid(),name,muscles:[...muscles],custom:true};
         db.exercises.push(libraryItem);
       }
       sess.ex.push({
         exId: libraryItem.id,
         name: libraryItem.name,
-        muscle,
+        muscles: [...muscles],
         note: '',
         sets: Array.from({length: numSets}, () => blank(false))
       });
@@ -2195,12 +2275,6 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   const t=e.target;
   const d=t.dataset;
-
-  if(d.f==='muscle' && view.t==='edit') {
-    const w=currentWorkout();
-    if(w) w.ex[Number(d.i)].muscle=t.value;
-    save();
-  }
 
   if(d.f==='rest') {
     const n=t.value.split(',')
