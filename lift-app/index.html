@@ -650,6 +650,44 @@ hr {
   font-variant-numeric: tabular-nums;
 }
 
+/* Workout plans */
+.plan {
+  border: 1px solid var(--acc-border);
+  background: linear-gradient(135deg, rgba(225, 29, 72, 0.07), rgba(17, 17, 21, 0.6));
+  border-radius: var(--radius-lg);
+  padding: 14px 12px 2px;
+  margin-bottom: 14px;
+}
+
+.plan > .row {
+  padding: 0 4px 12px;
+}
+
+.plan .card {
+  margin-bottom: 10px;
+}
+
+.plan-toggle {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.plan-chevron {
+  flex: none;
+  margin-top: 3px;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.plan.collapsed .plan-chevron {
+  transform: rotate(-90deg);
+}
+
 @media (min-width: 560px) {
   .statgrid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -710,7 +748,7 @@ const ICONS = {
 };
 
 const MUSCLES = [
-  'Chest','Back','Shoulders','Biceps','Triceps',
+  'Chest','Back','Traps','Shoulders','Rear Delts','Biceps','Triceps',
   'Quads','Hamstrings','Glutes','Calves','Abs',
   'Forearms','Full Body','Other'
 ];
@@ -730,7 +768,7 @@ const BUILT_IN_EXERCISES = [
   {name:'Treadmill',muscle:'Full Body'},{name:'Stationary Bike',muscle:'Full Body'},{name:'Rowing Machine',muscle:'Full Body'},{name:'Elliptical',muscle:'Full Body'},{name:'Jump Rope',muscle:'Full Body'}
 ];
 
-// Extra muscle tags for compound lifts. Isolation exercises are not listed and keep one tag.
+// Extra muscle tags for compound lifts (version 6 defaults). Isolation exercises are not listed and keep one tag.
 const BUILT_IN_EXTRA = {
   'Barbell Bench Press':['Shoulders'], 'Incline Barbell Bench Press':['Shoulders'], 'Decline Barbell Bench Press':['Triceps'],
   'Dumbbell Bench Press':['Shoulders'], 'Incline Dumbbell Press':['Shoulders'], 'Decline Dumbbell Press':['Triceps'],
@@ -751,11 +789,29 @@ const BUILT_IN_EXTRA = {
   "Farmer's Carry":['Back'], 'Suitcase Carry':['Abs']
 };
 
-const BUILT_IN_MUSCLE_MAP = new Map(
+// Version 7 split rear delts and traps out of Shoulders and Back. These replace the version 6 tags.
+const BUILT_IN_TAG_OVERRIDES = {
+  'Reverse Dumbbell Fly':['Rear Delts'], 'Reverse Pec Deck':['Rear Delts'], 'Face Pull':['Rear Delts','Traps'],
+  'Barbell Row':['Back','Rear Delts'], 'Pendlay Row':['Back','Rear Delts'], 'Dumbbell Row':['Back','Rear Delts'],
+  'Chest-Supported Row':['Back','Rear Delts'], 'Seated Cable Row':['Back','Rear Delts'], 'T-Bar Row':['Back','Rear Delts'],
+  'Machine Row':['Back','Rear Delts'], 'Inverted Row':['Back','Rear Delts'],
+  'Shrug':['Traps'], 'Upright Row':['Shoulders','Traps'], "Farmer's Carry":['Forearms','Traps'],
+  'Rack Pull':['Back','Traps','Glutes']
+};
+
+// Earlier defaults, used to spot built-ins you never retagged: the original single tag and the version 6 tags.
+const BUILT_IN_ORIGINAL = new Map(
+  BUILT_IN_EXERCISES.map(item => [item.name.toLowerCase(), [item.muscle]])
+);
+const BUILT_IN_V6_TAGS = new Map(
   BUILT_IN_EXERCISES.map(item => [item.name.toLowerCase(), [item.muscle, ...(BUILT_IN_EXTRA[item.name] || [])]])
 );
-const BUILT_IN_PRIMARY = new Map(
-  BUILT_IN_EXERCISES.map(item => [item.name.toLowerCase(), item.muscle])
+// Current default tags.
+const BUILT_IN_MUSCLE_MAP = new Map(
+  BUILT_IN_EXERCISES.map(item => [
+    item.name.toLowerCase(),
+    [...(BUILT_IN_TAG_OVERRIDES[item.name] || BUILT_IN_V6_TAGS.get(item.name.toLowerCase()))]
+  ])
 );
 
 // Muscle groups are tags. Every exercise carries a list of them.
@@ -779,7 +835,7 @@ const tagPills = m => cleanMuscles(m).map(x =>
 ).join('');
 
 const defaults = () => ({
-  version:6,
+  version:7,
   exercises:BUILT_IN_EXERCISES.map(item=>({id:uid(),name:item.name,muscles:[...BUILT_IN_MUSCLE_MAP.get(item.name.toLowerCase())],custom:false})),
   workouts:[],
   sessions:[],
@@ -790,7 +846,8 @@ const defaults = () => ({
   rest:[60,90,120,180],
   restSel:90,
   bodyweight:[],
-  defaultSets:3
+  defaultSets:3,
+  plans:[]
 });
 
 function normalize(raw) {
@@ -816,6 +873,21 @@ function normalize(raw) {
           sets:Math.max(1,Math.min(20,Number(e.sets)||d.defaultSets))
         })) : []
       })) : [];
+
+  const planned = new Set();
+  d.plans = Array.isArray(raw.plans)
+    ? raw.plans.filter(Boolean).map(p => ({
+        id:String(p.id || uid()),
+        name:String(p.name || ''),
+        desc:String(p.desc || ''),
+        collapsed:!!p.collapsed,
+        workoutIds:(Array.isArray(p.workoutIds) ? p.workoutIds : []).map(String).filter(id => {
+          if (planned.has(id) || !d.workouts.some(w => w.id === id)) return false;
+          planned.add(id);
+          return true;
+        })
+      }))
+    : [];
 
   const libraryByName = new Map();
   const addLibraryItem = (name, muscles=null, custom=false, id=null) => {
@@ -857,14 +929,16 @@ function normalize(raw) {
     }
   }
 
-  // One-time upgrade for data saved before version 6: give built-in compound lifts their extra tags.
-  // Only entries still on their original single tag change, so tags you set yourself stay as they are.
-  if (!(Number(raw.version) >= 6)) {
+  // One-time upgrade for data saved before version 7: built-in exercises still on an earlier default
+  // get the current default tags. Entries you retagged yourself stay as they are.
+  if (!(Number(raw.version) >= 7)) {
+    const sameTags = (x, y) => x.length === y.length && x.every(t => y.includes(t));
     const upgrade = item => {
       const key = item.name.trim().toLowerCase();
-      const full = BUILT_IN_MUSCLE_MAP.get(key);
-      if (full && full.length > 1 && item.muscles.length === 1 && item.muscles[0] === BUILT_IN_PRIMARY.get(key)) {
-        item.muscles = [...full];
+      const current = BUILT_IN_MUSCLE_MAP.get(key);
+      if (!current) return;
+      if (sameTags(item.muscles, BUILT_IN_ORIGINAL.get(key)) || sameTags(item.muscles, BUILT_IN_V6_TAGS.get(key))) {
+        item.muscles = [...current];
       }
     };
     d.exercises.forEach(upgrade);
@@ -970,6 +1044,10 @@ function remaining() {
 
 function currentWorkout() {
   return db.workouts.find(w=>w.id===view.id);
+}
+
+function currentPlan() {
+  return db.plans.find(p=>p.id===view.id);
 }
 
 function priorExercise(exId,name,wid) {
@@ -1185,24 +1263,8 @@ function getPRs() {
   return Object.values(records);
 }
 
-function vWorkouts() {
-  return `<div class="page-header">
-    <h1>Workouts</h1>
-    <button class="btn sm" data-a="new">${ICONS.plus} New</button>
-  </div>
-  ${db.active?`
-    <div class="card active-banner">
-      <div class="row">
-        <div class="sp">
-          <div class="small" style="color:#fb7185;font-weight:700;text-transform:uppercase;letter-spacing:.05em">In Progress</div>
-          <h2 style="margin-top:2px">${esc(db.active.name)}</h2>
-          <div class="mute">${db.active.ex.length} exercises</div>
-        </div>
-        <button class="btn sm" data-a="resume">Resume</button>
-      </div>
-    </div>`:''}
-  ${db.workouts.map(w=>`
-    <div class="card">
+function workoutCard(w) {
+  return `<div class="card">
       <div class="row" style="align-items:flex-start">
         <div class="sp">
           <h2>${esc(w.name||'Untitled workout')}</h2>
@@ -1215,7 +1277,101 @@ function vWorkouts() {
         <button class="btn sm ghost" data-a="edit" data-id="${w.id}">Edit</button>
         <button class="btn sm ghost" data-a="duplicate" data-id="${w.id}">Duplicate</button>
       </div>
-    </div>`).join('') || '<div class="card empty">No workouts yet. Tap <b>+ New</b> to build your first routine.</div>'}`;
+    </div>`;
+}
+
+function planBlock(p) {
+  const ws=p.workoutIds.map(id=>db.workouts.find(w=>w.id===id)).filter(Boolean);
+  const sets=ws.reduce((n,w)=>n+w.ex.reduce((m,e)=>m+e.sets,0),0);
+  return `<div class="plan${p.collapsed?' collapsed':''}">
+      <div class="row" style="align-items:flex-start">
+        <div class="plan-toggle" role="button" tabindex="0" aria-expanded="${p.collapsed?'false':'true'}" data-a="toggleplan" data-id="${p.id}">
+          <svg class="plan-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          <div style="min-width:0">
+            <h2>${esc(p.name||'Untitled plan')}</h2>
+            <div class="mute" style="margin-top:3px">${ws.length} workout${ws.length===1?'':'s'} · ${sets} sets${p.desc?' · '+esc(p.desc):''}</div>
+          </div>
+        </div>
+        <button class="btn sm ghost" data-a="editplan" data-id="${p.id}">Edit plan</button>
+      </div>
+      ${p.collapsed?'':(ws.map(workoutCard).join('')||'<div class="small" style="padding:0 4px 12px">No workouts in this plan yet. Tap Edit plan to add some.</div>')}
+    </div>`;
+}
+
+function vWorkouts() {
+  const inPlan=new Set(db.plans.flatMap(p=>p.workoutIds));
+  const ungrouped=db.workouts.filter(w=>!inPlan.has(w.id));
+  return `<div class="page-header">
+    <h1>Workouts</h1>
+    <div class="row" style="gap:8px">
+      <button class="btn sm ghost" data-a="newplan">${ICONS.plus} Plan</button>
+      <button class="btn sm" data-a="new">${ICONS.plus} New</button>
+    </div>
+  </div>
+  ${db.active?`
+    <div class="card active-banner">
+      <div class="row">
+        <div class="sp">
+          <div class="small" style="color:#fb7185;font-weight:700;text-transform:uppercase;letter-spacing:.05em">In Progress</div>
+          <h2 style="margin-top:2px">${esc(db.active.name)}</h2>
+          <div class="mute">${db.active.ex.length} exercises</div>
+        </div>
+        <button class="btn sm" data-a="resume">Resume</button>
+      </div>
+    </div>`:''}
+  ${db.plans.map(planBlock).join('')}
+  ${db.plans.length&&ungrouped.length?'<div class="section-label">Ungrouped workouts</div>':''}
+  ${ungrouped.map(workoutCard).join('') || (db.workouts.length?'':'<div class="card empty">No workouts yet. Tap <b>+ New</b> to build your first routine.</div>')}`;
+}
+
+function vPlanEdit() {
+  const p=currentPlan();
+  if(!p) return '<button class="btn alt" data-a="go" data-go="workouts">Back</button>';
+  const ws=p.workoutIds.map(id=>db.workouts.find(w=>w.id===id)).filter(Boolean);
+  const others=db.workouts.filter(w=>!p.workoutIds.includes(w.id));
+  const planOf=id=>db.plans.find(x=>x.workoutIds.includes(id));
+  const meta=w=>`${w.ex.length} exercise${w.ex.length===1?'':'s'} · ${w.ex.reduce((n,e)=>n+e.sets,0)} sets`;
+  return `<div class="page-header">
+      <button class="btn sm ghost" data-a="planback">${ICONS.back} Workouts</button>
+      <span class="pill">Plan Editor</span>
+    </div>
+    <div class="card">
+      <label style="margin-top:0">Plan name</label>
+      <input data-f="planname" value="${esc(p.name)}" placeholder="e.g. Push Pull Legs">
+      <label>Description</label>
+      <textarea data-f="plandesc" rows="2" placeholder="Optional goal or schedule notes">${esc(p.desc)}</textarea>
+    </div>
+    <div class="section-label">Workouts in plan (${ws.length})</div>
+    ${ws.length?'<div class="small" style="margin:-4px 0 10px">Removing a workout from a plan does not delete it.</div>':''}
+    ${ws.map((w,i)=>`
+      <div class="card">
+        <div class="row">
+          <span class="pill num">#${i+1}</span>
+          <div class="sp">
+            <b>${esc(w.name||'Untitled workout')}</b>
+            <div class="small num">${meta(w)}</div>
+          </div>
+          <button class="btn sm ghost" data-a="planup" data-i="${i}" ${i===0?'disabled':''}>↑</button>
+          <button class="btn sm ghost" data-a="plandown" data-i="${i}" ${i===ws.length-1?'disabled':''}>↓</button>
+          <button class="btn sm danger" data-a="planrm" data-id="${w.id}">Remove</button>
+        </div>
+      </div>`).join('')||'<div class="card empty">No workouts in this plan yet. Add some below.</div>'}
+    <div class="section-label">Add workouts</div>
+    ${others.map(w=>{
+      const other=planOf(w.id);
+      return `<div class="card">
+        <div class="row">
+          <div class="sp">
+            <b>${esc(w.name||'Untitled workout')}</b>
+            <div class="small num">${meta(w)}${other?' · In '+esc(other.name||'Untitled plan')+' (will move)':''}</div>
+          </div>
+          <button class="btn sm" data-a="planadd" data-id="${w.id}">${ICONS.plus} Add</button>
+        </div>
+      </div>`;
+    }).join('')||`<div class="card empty">${db.workouts.length?'Every workout is already in this plan.':'No workouts yet. Create one from the Workouts tab first.'}</div>`}
+    <div style="margin-top:24px">
+      <button class="btn danger block" data-a="delplan">Delete plan</button>
+    </div>`;
 }
 
 function vEdit() {
@@ -1696,7 +1852,7 @@ function vSettings() {
     </div>
     <div class="card">
       <h2>Backup & restore</h2>
-      <p class="mute">Export a JSON archive containing your exercise library, workout routines, session history, active workouts, bodyweight logs, and settings.</p>
+      <p class="mute">Export a JSON archive containing your exercise library, workout routines, workout plans, session history, active workouts, bodyweight logs, and settings.</p>
       <div class="inline-actions">
         <button class="btn sm" data-a="export">Export JSON</button>
         <button class="btn sm ghost" data-a="import">Import JSON</button>
@@ -1713,6 +1869,7 @@ function render() {
   const t=view.t;
   $('#app').innerHTML=
     t==='edit'?vEdit():
+    t==='planedit'?vPlanEdit():
     t==='session'?vSession():
     t==='addexsess'?vAddEx():
     t==='library'?vLibrary():
@@ -1723,7 +1880,7 @@ function render() {
     t==='settings'?vSettings():
     vWorkouts();
 
-  const tab=(t==='edit'||t==='session'||t==='editsess'||t==='picktemplate')?'workouts':t==='libraryedit'?'library':t;
+  const tab=(t==='edit'||t==='planedit'||t==='session'||t==='editsess'||t==='picktemplate')?'workouts':t==='libraryedit'?'library':t;
   document.querySelectorAll('nav button').forEach(b=>
     b.classList.toggle('on',b.dataset.go===tab)
   );
@@ -1808,7 +1965,7 @@ function beep() {
 }
 
 async function exportData() {
-  const data=JSON.stringify({...db,version:6},null,2);
+  const data=JSON.stringify({...db,version:7},null,2);
   const file=new File([data],
     'lift-backup-'+new Date().toISOString().slice(0,10)+'.json',
     {type:'application/json'}
@@ -1900,6 +2057,65 @@ function act(a,d,event) {
       view={t:'edit',id:d.id};
       break;
 
+    case 'newplan': {
+      const n={id:uid(),name:'',desc:'',collapsed:false,workoutIds:[]};
+      db.plans.push(n);
+      view={t:'planedit',id:n.id};
+      break;
+    }
+
+    case 'editplan':
+      view={t:'planedit',id:d.id};
+      break;
+
+    case 'toggleplan': {
+      const p=db.plans.find(x=>x.id===d.id);
+      if(p) p.collapsed=!p.collapsed;
+      break;
+    }
+
+    case 'planback': {
+      const p=currentPlan();
+      if(p && !p.name.trim() && !p.desc.trim() && !p.workoutIds.length) {
+        db.plans=db.plans.filter(x=>x.id!==p.id);
+      }
+      view={t:'workouts'};
+      break;
+    }
+
+    case 'planadd': {
+      const p=currentPlan();
+      if(!p || !db.workouts.some(x=>x.id===d.id)) break;
+      db.plans.forEach(x=>{ x.workoutIds=x.workoutIds.filter(id=>id!==d.id); });
+      p.workoutIds.push(d.id);
+      break;
+    }
+
+    case 'planrm': {
+      const p=currentPlan();
+      if(p) p.workoutIds=p.workoutIds.filter(id=>id!==d.id);
+      break;
+    }
+
+    case 'planup':
+    case 'plandown': {
+      const p=currentPlan();
+      if(!p) break;
+      const i=Number(d.i);
+      const j=a==='planup'?i-1:i+1;
+      if(j>=0 && j<p.workoutIds.length) [p.workoutIds[i],p.workoutIds[j]]=[p.workoutIds[j],p.workoutIds[i]];
+      break;
+    }
+
+    case 'delplan': {
+      const p=currentPlan();
+      if(!p) break;
+      if(!confirm('Delete this plan? Its workouts are kept.')) return;
+      db.plans=db.plans.filter(x=>x.id!==p.id);
+      view={t:'workouts'};
+      break;
+    }
+
     case 'editses': {
       const sessionId = String(d.id);
       const target = db.sessions.find(x => String(x.id) === sessionId);
@@ -1928,12 +2144,17 @@ function act(a,d,event) {
 
     case 'duplicate': {
       const src=db.workouts.find(x=>x.id===d.id);
-      if(src) db.workouts.push({
-        ...src,
-        id:uid(),
-        name:src.name+' (copy)',
-        ex:src.ex.map(e=>({...e,id:uid(),muscles:[...cleanMuscles(e.muscles)]}))
-      });
+      if(src) {
+        const copy={
+          ...src,
+          id:uid(),
+          name:src.name+' (copy)',
+          ex:src.ex.map(e=>({...e,id:uid(),muscles:[...cleanMuscles(e.muscles)]}))
+        };
+        db.workouts.push(copy);
+        const plan=db.plans.find(p=>p.workoutIds.includes(src.id));
+        if(plan) plan.workoutIds.splice(plan.workoutIds.indexOf(src.id)+1,0,copy.id);
+      }
       break;
     }
 
@@ -2094,6 +2315,7 @@ function act(a,d,event) {
     case 'delw':
       if(!confirm('Delete this workout template? Existing history will remain.')) return;
       db.workouts=db.workouts.filter(x=>x.id!==w.id);
+      db.plans.forEach(p=>{ p.workoutIds=p.workoutIds.filter(id=>id!==w.id); });
       view={t:'workouts'};
       break;
 
@@ -2287,6 +2509,14 @@ document.addEventListener('input',e=>{
     if(f==='desc') w.desc=t.value;
     if(f==='exdesc') w.ex[Number(d.i)].desc=t.value;
     if(f==='target') w.ex[Number(d.i)].target=t.value;
+  }
+
+  if(view.t==='planedit') {
+    const p=currentPlan();
+    if(p) {
+      if(f==='planname') p.name=t.value;
+      if(f==='plandesc') p.desc=t.value;
+    }
   }
 
   if(view.t==='session' && db.active) {
