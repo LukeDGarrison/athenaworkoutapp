@@ -688,12 +688,33 @@ hr {
   transform: rotate(-90deg);
 }
 
+
+/* Muscle diagram */
+.muscle-map { margin-top: 10px; }
+.mm-head { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+.mflip { display: inline-flex; align-items: center; gap: 7px; background: var(--surface-3); border: 1px solid var(--line); border-radius: 99px; padding: 6px 14px; font-size: 12px; font-weight: 600; color: var(--ink); }
+.mflip svg { flex: none; }
+.mm-body { display: flex; gap: 14px; align-items: center; }
+.mm-fig { flex: 0 0 50%; max-width: 210px; }
+.mfig { width: 100%; height: auto; display: block; }
+.muscle-map[data-side="front"] .mfig.back,
+.muscle-map[data-side="back"] .mfig.front { display: none; }
+.mreg { stroke: var(--surface); stroke-width: 1.6; stroke-linejoin: round; }
+.mm-legend { flex: 1; min-width: 0; }
+.mgroup + .mgroup { margin-top: 16px; }
+.mgroup h4 { display: flex; align-items: center; gap: 7px; margin: 0 0 8px; font-size: 15px; font-weight: 700; color: var(--ink); }
+.mdot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.mchips { display: flex; flex-wrap: wrap; gap: 6px; }
+.mchip { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; font-size: 12px; font-weight: 600; color: var(--ink); }
+.mchip i { font-style: normal; color: var(--mute); margin-left: 5px; }
+
 @media (min-width: 560px) {
   .statgrid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 </style>
+<base target="_blank">
 <base target="_blank">
 </head>
 <body>
@@ -1263,6 +1284,157 @@ function getPRs() {
   return Object.values(records);
 }
 
+const ART_FRONT = [
+  ['sil','100,44 92.5,45 91,60 100,63'],
+  ['Traps','90,60 74,66 58,68 66,75 80,73 88,67'],
+  ['Shoulders','58,68 52,67 45,71 41,79 39,90 40,101 48,97 54,84 58,72'],
+  ['Shoulders','58,72 54,84 48,97 40,101 37,108 46,111 53,104 60,94 63,82 66,75'],
+  ['Chest','99.3,74 99.3,90 83,90 66,94 64,85 66,77 76,73'],
+  ['Chest','99.3,90 99.3,114 86,118 74,112 66,103 66,94 83,90'],
+  ['Abs','66,103 74,112 72,118 64,111'],
+  ['Abs','64,111 72,118 71,125 63,118'],
+  ['Abs','63,118 71,125 71,132 64,126'],
+  ['Abs','86,118 74,112 72,118 71,125 71,132 72,148 74,162 79,176 90,190 88,172 87,152 87,134'],
+  ['Abs','99.3,114 86,118 87,132 99.3,133'],
+  ['Abs','99.3,133 87,132 87,150 99.3,151'],
+  ['Abs','99.3,151 87,150 88,170 99.3,174'],
+  ['Abs','99.3,174 88,170 90,190 99.3,196'],
+  ['base','74,162 79,176 90,190 99.3,196 99.3,216 90,211 76,206 63,200 62,190 66,176'],
+  ['Triceps','36.5,108 39,112 32.5,151 30.4,150'],
+  ['Biceps','40.5,111 46.5,112 43,132 40,152 34.5,150.5'],
+  ['Biceps','47.5,112 54.5,108 50,132 44.5,151.5 40,152 43,132'],
+  ['Forearms','30.4,150 37,152 33.5,178 28.5,209 23.5,208 25,190 27,172'],
+  ['Forearms','37,152 44.5,151.5 44,163.5 39,182 31.5,209 28.5,209 33.5,178'],
+  ['sil','23.5,208 32,209 34,222 35,238 32,250 27,252 23,244 19,230'],
+  ['Quads','63,200 76,206 78,240 78,270 76,292 72,296 69,288 64,260 62,232'],
+  ['Quads','76,206 90,211 91,240 88,272 84,290 76,292 78,270 78,240'],
+  ['Quads','90,211 99.3,216 97,240 94,265 90,285 84,290 88,272 91,240'],
+  ['base','72,296 76,292 84,290 90,285 89,300 85,308 75,308 71,300'],
+  ['Calves','71,300 75,308 77,332 78,356 78,380 75,378 69,356 66,336 67,316'],
+  ['base','75,308 85,308 86,332 84,356 82,380 78,380 78,356 77,332'],
+  ['Calves','85,308 89,300 92,318 91,338 87,360 82,380 84,356 86,332'],
+  ['base','75,378 78,380 82,380 85,380 84,400 77,400'],
+  ['sil','77,400 84,400 88,410 90,425 86,432 72,432 70,424 74,410']
+];
+
+const ART_BACK = [
+  ['sil','100,44 92.5,45 91,60 100,66'],
+  ['Traps','99.3,48 91,58 74,66 58,68 66,78 82,83 99.3,92'],
+  ['Traps','99.3,92 82,83 84,96 92,108 92,126 99.3,124'],
+  ['Shoulders','58,68 52,67 45,71 41,79 39,90 40,102 47,96 52,82 55,72'],
+  ['Rear Delts','58,68 55,72 52,82 47,96 40,102 38,108 47,110 56,102 62,90 66,78'],
+  ['Back','66,78 82,83 84,96 76,100 65,96 62,90'],
+  ['Back','65,96 76,100 84,96 92,108 92,126 92,148 92,170 84,162 78,150 73,132 69,112'],
+  ['Back','99.3,124 92,126 92,148 99.3,150'],
+  ['Back','99.3,150 92,148 92,170 99.3,176'],
+  ['Abs','69,112 73,132 78,150 84,162 80,172 72,160 70,145 66,125'],
+  ['Glutes','84,162 92,170 88,184 76,184 68,180 72,172 80,172'],
+  ['Glutes','99.3,176 92,170 88,184 76,184 68,180 65,192 66,204 76,212 90,214 99.3,214'],
+  ['Triceps','38,108 47,110 44,130 40,151 31,150 33,128'],
+  ['Triceps','47,110 56,102 54,120 50,138 44.4,151 40,151 44,130'],
+  ['Forearms','30.4,150 37,152 33.5,178 28.5,209 23.5,208 25,190 27,172'],
+  ['Forearms','37,152 44.5,151.5 44,163.5 39,182 31.5,209 28.5,209 33.5,178'],
+  ['sil','23.5,208 32,209 34,222 35,238 32,250 27,252 23,244 19,230'],
+  ['Hamstrings','63,214 80,214 80,250 78,275 76,292 72,296 69,288 64,262 62,238'],
+  ['Hamstrings','80,214 99.3,214 97,240 94,265 90,285 84,290 76,292 78,275 80,250'],
+  ['base','72,296 76,292 84,290 90,285 88,298 80,300 72,300'],
+  ['Calves','71,300 80,300 82,325 80,350 76,360 70,350 66,334 67,314'],
+  ['Calves','80,300 88,298 92,316 91,336 87,352 82,360 80,350 82,325'],
+  ['Calves','76,360 82,360 85,372 83,384 78,384 75,372'],
+  ['base','78,384 83,384 84,400 77,400'],
+  ['sil','77,400 84,400 86,412 85,426 78,428 74,418']
+];
+
+// Which side of the body each tag mostly shows on, used to pick the starting view.
+const MUSCLE_FRONT = ['Chest','Shoulders','Biceps','Abs','Quads'];
+const MUSCLE_BACK = ['Traps','Back','Rear Delts','Triceps','Glutes','Hamstrings'];
+let muscleSide = null; // null = pick automatically, 'front' or 'back' once you tap the toggle
+
+function muscleDiagram(exList) {
+  const counts = {};
+  for (const e of exList || []) {
+    const n = Array.isArray(e.sets)
+      ? (e.sets.filter(s => !s.warm).length || e.sets.length)
+      : Math.max(0, Math.round(Number(e.sets) || 0));
+    if (!n) continue;
+    for (const m of cleanMuscles(e.muscles)) counts[m] = (counts[m] || 0) + n;
+  }
+
+  // Full Body tags have no spot on the figure, so they stay off the diagram entirely.
+  const hadTags = Object.keys(counts).length > 0;
+  delete counts['Full Body'];
+
+  if (!Object.keys(counts).length) {
+    return '<div class="empty" style="padding:14px 6px">' + (hadTags
+      ? 'Full body exercises are not shown on the diagram.'
+      : 'Add exercises to see which muscle groups this workout trains.') + '</div>';
+  }
+
+  const max = Math.max(1, ...Object.values(counts));
+  const PRIMARY = '#d92d20', SECONDARY = '#f5c518';
+  const isPrimary = c => c >= max * 0.5;
+  const fillFor = tag => {
+    if (tag === 'sil') return '#4a4e70';
+    if (tag === 'hair') return '#272b46';
+    const c = counts[tag];
+    if (!c) return '#2d3150';
+    return isPrimary(c) ? PRIMARY : SECONDARY;
+  };
+
+  // Head: face (or back of the skull), ears and a hair silhouette. Drawn last so the chin sits over the neck.
+  const head = side => {
+    const skin = fillFor('sil'), hair = fillFor('hair');
+    const skull = '<path class="mreg" fill="' + skin + '" d="M100 8 C110 8 115.5 16 115.5 26 C115.5 33 113 39 109.5 43 C106.5 46.5 103.5 48.5 100 48.5 C96.5 48.5 93.5 46.5 90.5 43 C87 39 84.5 33 84.5 26 C84.5 16 90 8 100 8 Z"/>';
+    const ears = '<ellipse class="mreg" fill="' + skin + '" cx="84" cy="29" rx="2.4" ry="4.6"/><ellipse class="mreg" fill="' + skin + '" cx="116" cy="29" rx="2.4" ry="4.6"/>';
+    const hairFront = '<path class="mreg" fill="' + hair + '" d="M84.5 28 C82.5 14 90 4.5 100 4.5 C110 4.5 117.5 14 115.5 28 C114.5 23 112.5 19.5 109.5 17.5 C104 20 97 19.5 92 17 C88.5 19.5 85.5 23 84.5 28 Z"/>';
+    const hairBack = '<path class="mreg" fill="' + hair + '" d="M84.5 29 C82.5 14 90 4.5 100 4.5 C110 4.5 117.5 14 115.5 29 C115.5 35 113.5 39 110 41 C106 43 94 43 90 41 C86.5 39 84.5 35 84.5 29 Z"/>';
+    const ink = fillFor('hair');
+    const smile = '<circle cx="94.5" cy="29" r="1.5" fill="' + ink + '"/><circle cx="105.5" cy="29" r="1.5" fill="' + ink + '"/>' +
+      '<path d="M94 35.5 Q100 41.5 106 35.5" fill="none" stroke="' + ink + '" stroke-width="1.5" stroke-linecap="round"/>';
+    return side === 'back' ? ears + skull + hairBack : ears + skull + hairFront + smile;
+  };
+
+  const fig = (side, list) => {
+    const half = list.map(([tag, pts]) =>
+      '<polygon class="mreg" fill="' + fillFor(tag) + '" points="' + pts + '"/>'
+    ).join('');
+    return '<svg class="mfig ' + side + '" viewBox="0 0 200 440" role="img" aria-label="Muscle groups trained, ' + side + ' view">' +
+      '<g>' + half + '</g>' +
+      '<g transform="translate(200 0) scale(-1 1)">' + half + '</g>' +
+      head(side) +
+    '</svg>';
+  };
+
+  // Starting side: whichever has more trained volume, unless you already picked one.
+  const sum = list => list.reduce((s, m) => s + (counts[m] || 0), 0);
+  const side = muscleSide || (sum(MUSCLE_BACK) > sum(MUSCLE_FRONT) ? 'back' : 'front');
+
+  // Primary = at least half of the top muscle's sets. Everything else is secondary.
+  const all = Object.entries(counts).sort((x, y) => y[1] - x[1]);
+  const named = all.filter(([m]) => m !== 'Other');
+  const ranked = named.length ? named : all;
+  const primary = ranked.filter(([, n]) => n >= max * 0.5);
+  const secondary = ranked.filter(([, n]) => n < max * 0.5);
+  const chips = list => '<div class="mchips">' + list.map(([m, n]) =>
+    '<span class="mchip">' + esc(m) + '<i class="num">' + n + '</i></span>'
+  ).join('') + '</div>';
+  const group = (title, color, list) => !list.length ? '' :
+    '<div class="mgroup"><h4><span class="mdot" style="background:' + color + '"></span>' + title + '</h4>' + chips(list) + '</div>';
+
+  return '<div class="muscle-map" data-side="' + side + '">' +
+    '<div class="mm-head"><button type="button" class="mflip" data-a="mside" aria-label="Flip body view">' +
+      '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-15-6.7L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 15 6.7l3-2.7"/><path d="M16 16h5v5"/></svg>Flip' +
+    '</button></div>' +
+    '<div class="mm-body">' +
+      '<div class="mm-fig">' + fig('front', ART_FRONT) + fig('back', ART_BACK) + '</div>' +
+      '<div class="mm-legend">' +
+        group('Primary', PRIMARY, primary) +
+        group('Secondary', SECONDARY, secondary) +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+
 function workoutCard(w) {
   return `<div class="card">
       <div class="row" style="align-items:flex-start">
@@ -1385,8 +1557,7 @@ function vEdit() {
     <div class="card">
       <label style="margin-top:0">Workout name</label>
       <input data-f="name" value="${esc(w.name)}" placeholder="e.g. Upper Body A">
-      <label>Description</label>
-      <textarea data-f="desc" rows="2" placeholder="Optional focus or notes">${esc(w.desc)}</textarea>
+      ${muscleDiagram(w.ex)}
     </div>
     <div class="section-label">Exercises (${w.ex.length})</div>
     ${w.ex.map((e,i)=>`
@@ -1447,7 +1618,7 @@ function vSession() {
         <span class="pill acc num">${pct}%</span>
       </div>
       <div class="progress"><i style="width:${pct}%"></i></div>
-      <textarea data-f="sessionnote" rows="2" placeholder="Session notes (energy, bodyweight, adjustments...)" style="margin-top:8px">${esc(a.note)}</textarea>
+      ${muscleDiagram(a.ex)}
     </div>
     ${a.ex.map((e,ei)=>{
       const ls=priorExercise(e.exId,e.name,a.wid);
@@ -2013,6 +2184,13 @@ function act(a,d,event) {
   const es=db.editingSession;
 
   switch(a) {
+    case 'mside': {
+      const here = event && event.target.closest ? event.target.closest('.muscle-map') : null;
+      muscleSide = (here ? here.dataset.side : muscleSide) === 'back' ? 'front' : 'back';
+      document.querySelectorAll('.muscle-map').forEach(el => { el.dataset.side = muscleSide; });
+      return;
+    }
+
     case 'go':
       view={t:d.go};
       if(d.go==='history') calReset();
