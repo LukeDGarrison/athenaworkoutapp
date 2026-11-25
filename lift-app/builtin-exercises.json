@@ -1,0 +1,1016 @@
+{
+  "version": 7,
+  "exercises": [
+    {
+      "id": "nqphj42k7drf",
+      "name": "Barbell Bench Press",
+      "muscles": [
+        "Chest",
+        "Shoulders"
+      ],
+      "equipment": "barbells",
+      "custom": false
+    },
+    {
+      "id": "au2pcpfn7drf",
+      "name": "Incline Barbell Bench Press",
+      "muscles": [
+        "Chest",
+        "Shoulders"
+      ],
+      "equipment": "barbells",
+      "custom": false
+    },
+    {
+      "id": "lxdmlv1q7drf",
+      "name": "Decline Barbell Bench Press",
+      "muscles": [
+        "Chest",
+        "Triceps"
+      ],
+      "equipment": "barbells",
+      "custom": false
+    },
+    {
+      "id": "85f6fi4a7drf",
+      "name": "Dumbbell Bench Press",
+      "muscles": [
+        "Chest",
+        "Shoulders"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "cnod3vvr7drf",
+      "name": "Incline Dumbbell Press",
+      "muscles": [
+        "Chest",
+        "Shoulders"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "hwk7y4267drf",
+      "name": "Decline Dumbbell Press",
+      "muscles": [
+        "Chest",
+        "Triceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "zktrrlky7drf",
+      "name": "Close-Grip Bench Press",
+      "muscles": [
+        "Chest",
+        "Triceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "m4sjkm7s7drf",
+      "name": "Floor Press",
+      "muscles": [
+        "Chest",
+        "Triceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "nakyumz87drf",
+      "name": "Chest Press Machine",
+      "muscles": [
+        "Chest",
+        "Shoulders"
+      ],
+      "equipment": "machines",
+      "custom": false
+    },
+    {
+      "id": "n80me44m7drf",
+      "name": "Push-Up",
+      "muscles": [
+        "Chest",
+        "Shoulders"
+      ],
+      "equipment": "bodyweight",
+      "custom": false
+    },
+    {
+      "id": "liyxtilr7drf",
+      "name": "Weighted Push-Up",
+      "muscles": [
+        "Chest",
+        "Shoulders"
+      ],
+      "equipment": "bodyweight",
+      "custom": false
+    },
+    {
+      "id": "4znd7bdy7drf",
+      "name": "Cable Chest Fly",
+      "muscles": [
+        "Chest"
+      ],
+      "equipment": "cables",
+      "custom": false
+    },
+    {
+      "id": "o5bwwdcu7drf",
+      "name": "Dumbbell Fly",
+      "muscles": [
+        "Chest"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "ol5nor6m7drf",
+      "name": "Pec Deck",
+      "muscles": [
+        "Chest"
+      ],
+      "equipment": "machines",
+      "custom": false
+    },
+    {
+      "id": "eqjng2l27drf",
+      "name": "Dip",
+      "muscles": [
+        "Chest",
+        "Triceps"
+      ],
+      "equipment": "bodyweight",
+      "custom": false
+    },
+    {
+      "id": "w2kzb35c7drf",
+      "name": "Weighted Dip",
+      "muscles": [
+        "Chest",
+        "Triceps"
+      ],
+      "equipment": "bodyweight",
+      "custom": false
+    },
+    {
+      "id": "a4enmw9o7drf",
+      "name": "Pull-Up",
+      "muscles": [
+        "Back"
+      ],
+      "equipment": "bodyweight",
+      "custom": false
+    },
+    {
+      "id": "s5icsepf7drf",
+      "name": "Chin-Up",
+      "muscles": [
+        "Back",
+        "Biceps"
+      ],
+      "equipment": "bodyweight",
+      "custom": false
+    },
+    {
+      "id": "mzc4mrqe7drf",
+      "name": "Lat Pulldown",
+      "muscles": [
+        "Back"
+      ],
+      "equipment": "cables",
+      "custom": false
+    },
+    {
+      "id": "1w7du31m7drf",
+      "name": "Neutral-Grip Lat Pulldown",
+      "muscles": [
+        "Back"
+      ],
+      "equipment": "cables",
+      "custom": false
+    },
+    {
+      "id": "utwlct3m7drf",
+      "name": "Straight-Arm Pulldown",
+      "muscles": [
+        "Back"
+      ],
+      "equipment": "cables",
+      "custom": false
+    },
+    {
+      "id": "531ztd927drf",
+      "name": "Barbell Row",
+      "muscles": [
+        "Back",
+        "Rear Delts"
+      ],
+      "equipment": "barbells",
+      "custom": false
+    },
+    {
+      "id": "6dyt37hi7drf",
+      "name": "Pendlay Row",
+      "muscles": [
+        "Back",
+        "Rear Delts"
+      ],
+      "equipment": "barbells",
+      "custom": false
+    },
+    {
+      "id": "3qsl0ezp7drf",
+      "name": "Dumbbell Row",
+      "muscles": [
+        "Back",
+        "Rear Delts"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "mwztjeee7drf",
+      "name": "Chest-Supported Row",
+      "muscles": [
+        "Back",
+        "Rear Delts"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "f4scnn8w7drf",
+      "name": "Seated Cable Row",
+      "muscles": [
+        "Back",
+        "Rear Delts"
+      ],
+      "equipment": "cables",
+      "custom": false
+    },
+    {
+      "id": "db158dpv7drf",
+      "name": "T-Bar Row",
+      "muscles": [
+        "Back",
+        "Rear Delts"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "2mpfwv7x7drf",
+      "name": "Machine Row",
+      "muscles": [
+        "Back",
+        "Rear Delts"
+      ],
+      "equipment": "machines",
+      "custom": false
+    },
+    {
+      "id": "skmce3b07drf",
+      "name": "Inverted Row",
+      "muscles": [
+        "Back",
+        "Rear Delts"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "621gs7ft7drf",
+      "name": "Deadlift",
+      "muscles": [
+        "Back",
+        "Glutes",
+        "Hamstrings"
+      ],
+      "equipment": "barbells",
+      "custom": false
+    },
+    {
+      "id": "kx580u8f7drf",
+      "name": "Rack Pull",
+      "muscles": [
+        "Back",
+        "Traps",
+        "Glutes"
+      ],
+      "equipment": "barbells",
+      "custom": false
+    },
+    {
+      "id": "rbg5x7e27drf",
+      "name": "Back Extension",
+      "muscles": [
+        "Back",
+        "Glutes"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "0ke4ndva7drf",
+      "name": "Shrug",
+      "muscles": [
+        "Traps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "bjdwnjh87drf",
+      "name": "Overhead Press",
+      "muscles": [
+        "Shoulders",
+        "Triceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "i5uqjs2o7drf",
+      "name": "Seated Dumbbell Shoulder Press",
+      "muscles": [
+        "Shoulders",
+        "Triceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "uoijb2fo7drf",
+      "name": "Arnold Press",
+      "muscles": [
+        "Shoulders",
+        "Triceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "b3hmcqh17drf",
+      "name": "Machine Shoulder Press",
+      "muscles": [
+        "Shoulders",
+        "Triceps"
+      ],
+      "equipment": "machines",
+      "custom": false
+    },
+    {
+      "id": "jsa4tbmf7drf",
+      "name": "Dumbbell Lateral Raise",
+      "muscles": [
+        "Shoulders"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "ciby15x77drf",
+      "name": "Cable Lateral Raise",
+      "muscles": [
+        "Shoulders"
+      ],
+      "equipment": "cables",
+      "custom": false
+    },
+    {
+      "id": "0uqsk87z7drf",
+      "name": "Front Raise",
+      "muscles": [
+        "Shoulders"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "w9295wp27drf",
+      "name": "Reverse Dumbbell Fly",
+      "muscles": [
+        "Rear Delts"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "0a1xdkkr7drf",
+      "name": "Reverse Pec Deck",
+      "muscles": [
+        "Rear Delts"
+      ],
+      "equipment": "machines",
+      "custom": false
+    },
+    {
+      "id": "2ux57zy87drf",
+      "name": "Face Pull",
+      "muscles": [
+        "Rear Delts",
+        "Traps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "izexo87w7drf",
+      "name": "Upright Row",
+      "muscles": [
+        "Shoulders",
+        "Traps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "hsa5y12h7drf",
+      "name": "Barbell Curl",
+      "muscles": [
+        "Biceps"
+      ],
+      "equipment": "barbells",
+      "custom": false
+    },
+    {
+      "id": "g6mhhzcp7drf",
+      "name": "Dumbbell Curl",
+      "muscles": [
+        "Biceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "tjkvgw6n7drf",
+      "name": "Hammer Curl",
+      "muscles": [
+        "Biceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "ljgxzucw7drf",
+      "name": "Incline Dumbbell Curl",
+      "muscles": [
+        "Biceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "sgnkjnx97drf",
+      "name": "Preacher Curl",
+      "muscles": [
+        "Biceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "s0krqzj47drf",
+      "name": "Cable Curl",
+      "muscles": [
+        "Biceps"
+      ],
+      "equipment": "cables",
+      "custom": false
+    },
+    {
+      "id": "4xsumpu57drf",
+      "name": "Concentration Curl",
+      "muscles": [
+        "Biceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "sdjr1gf17drf",
+      "name": "Reverse Curl",
+      "muscles": [
+        "Biceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "k2d0qwt27drf",
+      "name": "EZ-Bar Curl",
+      "muscles": [
+        "Biceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "tzj3rgrh7drf",
+      "name": "Triceps Pushdown",
+      "muscles": [
+        "Triceps"
+      ],
+      "equipment": "cables",
+      "custom": false
+    },
+    {
+      "id": "je6i8hw47drf",
+      "name": "Rope Pushdown",
+      "muscles": [
+        "Triceps"
+      ],
+      "equipment": "cables",
+      "custom": false
+    },
+    {
+      "id": "qit0hke57drf",
+      "name": "Overhead Triceps Extension",
+      "muscles": [
+        "Triceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "st52lrj37drf",
+      "name": "Skull Crusher",
+      "muscles": [
+        "Triceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "h8gmt6we7drf",
+      "name": "Lying Triceps Extension",
+      "muscles": [
+        "Triceps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "lmjyz3yz7drf",
+      "name": "Close-Grip Push-Up",
+      "muscles": [
+        "Triceps",
+        "Chest"
+      ],
+      "equipment": "bodyweight",
+      "custom": false
+    },
+    {
+      "id": "xeel8lge7drf",
+      "name": "Triceps Dip",
+      "muscles": [
+        "Triceps",
+        "Chest"
+      ],
+      "equipment": "bodyweight",
+      "custom": false
+    },
+    {
+      "id": "1b24gllx7drf",
+      "name": "Barbell Back Squat",
+      "muscles": [
+        "Quads",
+        "Glutes"
+      ],
+      "equipment": "barbells",
+      "custom": false
+    },
+    {
+      "id": "v6le2f5x7drf",
+      "name": "Front Squat",
+      "muscles": [
+        "Quads",
+        "Glutes"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "6sxyht377drf",
+      "name": "Goblet Squat",
+      "muscles": [
+        "Quads",
+        "Glutes"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "99jcnzbn7drf",
+      "name": "Hack Squat",
+      "muscles": [
+        "Quads",
+        "Glutes"
+      ],
+      "equipment": "machines",
+      "custom": false
+    },
+    {
+      "id": "bzzxebf17drf",
+      "name": "Leg Press",
+      "muscles": [
+        "Quads",
+        "Glutes"
+      ],
+      "equipment": "machines",
+      "custom": false
+    },
+    {
+      "id": "gcp1bbng7drf",
+      "name": "Bulgarian Split Squat",
+      "muscles": [
+        "Quads",
+        "Glutes"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "s6fi6c7h7drf",
+      "name": "Walking Lunge",
+      "muscles": [
+        "Quads",
+        "Glutes"
+      ],
+      "equipment": "bodyweight",
+      "custom": false
+    },
+    {
+      "id": "bpwdct567drf",
+      "name": "Reverse Lunge",
+      "muscles": [
+        "Quads",
+        "Glutes"
+      ],
+      "equipment": "bodyweight",
+      "custom": false
+    },
+    {
+      "id": "bezw5gu87drf",
+      "name": "Leg Extension",
+      "muscles": [
+        "Quads"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "7tgpkx107drf",
+      "name": "Step-Up",
+      "muscles": [
+        "Quads",
+        "Glutes"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "sd1eurqc7drf",
+      "name": "Smith Machine Squat",
+      "muscles": [
+        "Quads",
+        "Glutes"
+      ],
+      "equipment": "machines",
+      "custom": false
+    },
+    {
+      "id": "wxvswewl7drf",
+      "name": "Leg Curl",
+      "muscles": [
+        "Hamstrings"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "8g6rhyom7drf",
+      "name": "Seated Leg Curl",
+      "muscles": [
+        "Hamstrings"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "hl2j3cvh7drf",
+      "name": "Lying Leg Curl",
+      "muscles": [
+        "Hamstrings"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "yskgcrct7drf",
+      "name": "Nordic Curl",
+      "muscles": [
+        "Hamstrings"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "17t3ex0y7drf",
+      "name": "Romanian Deadlift",
+      "muscles": [
+        "Hamstrings",
+        "Glutes"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "vcb0mkhj7drf",
+      "name": "Stiff-Leg Deadlift",
+      "muscles": [
+        "Hamstrings",
+        "Glutes"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "q1c72c5r7drf",
+      "name": "Good Morning",
+      "muscles": [
+        "Hamstrings",
+        "Glutes",
+        "Back"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "m0uz80pp7drf",
+      "name": "Hip Thrust",
+      "muscles": [
+        "Glutes",
+        "Hamstrings"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "fbntle0g7drf",
+      "name": "Glute Bridge",
+      "muscles": [
+        "Glutes",
+        "Hamstrings"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "fz0si0gm7drf",
+      "name": "Cable Kickback",
+      "muscles": [
+        "Glutes"
+      ],
+      "equipment": "cables",
+      "custom": false
+    },
+    {
+      "id": "u08z9s8w7drf",
+      "name": "Hip Abduction Machine",
+      "muscles": [
+        "Glutes"
+      ],
+      "equipment": "machines",
+      "custom": false
+    },
+    {
+      "id": "rc3v7xr67drf",
+      "name": "Hip Adduction Machine",
+      "muscles": [
+        "Glutes"
+      ],
+      "equipment": "machines",
+      "custom": false
+    },
+    {
+      "id": "rn1y7hp57drf",
+      "name": "Standing Calf Raise",
+      "muscles": [
+        "Calves"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "de5o9v2s7drf",
+      "name": "Seated Calf Raise",
+      "muscles": [
+        "Calves"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "9umjq9lc7drf",
+      "name": "Leg Press Calf Raise",
+      "muscles": [
+        "Calves"
+      ],
+      "equipment": "machines",
+      "custom": false
+    },
+    {
+      "id": "d0kjfie27drf",
+      "name": "Plank",
+      "muscles": [
+        "Abs"
+      ],
+      "equipment": "bodyweight",
+      "custom": false
+    },
+    {
+      "id": "1djbatpm7drf",
+      "name": "Side Plank",
+      "muscles": [
+        "Abs"
+      ],
+      "equipment": "bodyweight",
+      "custom": false
+    },
+    {
+      "id": "2h8oesm87drf",
+      "name": "Crunch",
+      "muscles": [
+        "Abs"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "khszawh27drf",
+      "name": "Cable Crunch",
+      "muscles": [
+        "Abs"
+      ],
+      "equipment": "cables",
+      "custom": false
+    },
+    {
+      "id": "ob2t6cjs7drf",
+      "name": "Reverse Crunch",
+      "muscles": [
+        "Abs"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "dnl666px7drf",
+      "name": "Hanging Leg Raise",
+      "muscles": [
+        "Abs"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "guqd72787drf",
+      "name": "Captain's Chair Leg Raise",
+      "muscles": [
+        "Abs"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "3zeq03of7drf",
+      "name": "Ab Wheel Rollout",
+      "muscles": [
+        "Abs"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "sgv5w7s87drf",
+      "name": "Russian Twist",
+      "muscles": [
+        "Abs"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "r9b3to5o7drf",
+      "name": "Pallof Press",
+      "muscles": [
+        "Abs"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "bq3ikvcu7drf",
+      "name": "Farmer's Carry",
+      "muscles": [
+        "Forearms",
+        "Traps"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "o2j86c1n7drf",
+      "name": "Suitcase Carry",
+      "muscles": [
+        "Forearms",
+        "Abs"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "iwo14z5q7drf",
+      "name": "Wrist Curl",
+      "muscles": [
+        "Forearms"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "6bz64cp57drf",
+      "name": "Reverse Wrist Curl",
+      "muscles": [
+        "Forearms"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "gwcjikpd7drf",
+      "name": "Wrist Roller",
+      "muscles": [
+        "Forearms"
+      ],
+      "equipment": "freeweights/misc",
+      "custom": false
+    },
+    {
+      "id": "y7d6pqww7drf",
+      "name": "Treadmill",
+      "muscles": [
+        "Cardio"
+      ],
+      "equipment": "cardio",
+      "custom": false
+    },
+    {
+      "id": "3zzf0y5o7drf",
+      "name": "Stationary Bike",
+      "muscles": [
+        "Cardio"
+      ],
+      "equipment": "cardio",
+      "custom": false
+    },
+    {
+      "id": "6ba4gnbf7drf",
+      "name": "Rowing Machine",
+      "muscles": [
+        "Cardio"
+      ],
+      "equipment": "machines",
+      "custom": false
+    },
+    {
+      "id": "d2qlkocv7drf",
+      "name": "Elliptical",
+      "muscles": [
+        "Cardio"
+      ],
+      "equipment": "cardio",
+      "custom": false
+    },
+    {
+      "id": "iciwmqul7drf",
+      "name": "Jump Rope",
+      "muscles": [
+        "Cardio"
+      ],
+      "equipment": "cardio",
+      "custom": false
+    }
+  ],
+  "workouts": [],
+  "sessions": [],
+  "active": null,
+  "plans": []
+}
