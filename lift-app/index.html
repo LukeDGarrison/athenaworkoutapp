@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#070709">
 <link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-180.png">
 <title>Lift</title>
 <style>
 :root {
@@ -18,7 +19,7 @@
   --surface-3: #222229;
   --ink: #f4f4f6;
   --ink-dim: #a1a1aa;
-  --mute: #71717a;
+  --mute: #8a8a94;
   --line: rgba(255, 255, 255, 0.07);
   --line-strong: rgba(255, 255, 255, 0.14);
   --acc: #e11d48;
@@ -222,6 +223,24 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
 .mchip { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; font-size: 12px; font-weight: 600; color: var(--ink); }
 .mchip i { font-style: normal; color: var(--mute); margin-left: 5px; }
 
+input, textarea, select { font-size: 16px; }
+.progress { position: relative; }
+.mark { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: .55; }
+.toast { position: fixed; z-index: 30; left: 12px; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom)); max-width: 556px; margin: 0 auto; background: var(--surface-3); border: 1px solid var(--line-strong); border-radius: var(--radius-md); padding: 10px 12px 10px 14px; display: flex; align-items: center; gap: 10px; font-size: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.6); animation: up .18s ease; }
+@keyframes up { from { opacity: 0; transform: translateY(8px); } }
+@keyframes fade { from { opacity: 0; } }
+.scrim { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.6); display: flex; align-items: flex-end; justify-content: center; animation: fade .15s ease; }
+.sheet { width: 100%; max-width: 580px; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 20px 20px 0 0; padding: 22px 16px calc(16px + env(safe-area-inset-bottom)); white-space: pre-line; }
+.sheet .row { margin-top: 18px; } .sheet .btn { flex: 1; }
+.dsum { font-size: 12px; font-weight: 600; color: var(--ink-dim); padding: 8px 0; }
+.dsum::before { content: "▸ "; } details[open] > .dsum::before { content: "▾ "; }
+.card.done-ex { padding: 12px 16px; opacity: .85; }
+.card[data-ex] { scroll-margin-top: calc(env(safe-area-inset-top) + 12px); }
+.exsum { display: flex; align-items: center; gap: 10px; }
+#timer.idle { padding: 8px 12px; } #timer.idle #clock { font-size: 18px; }
+.spark { width: 100%; height: 56px; display: block; margin-top: 10px; overflow: visible; }
+.delta { font-style: normal; font-size: 11px; font-weight: 700; margin-left: 6px; } .delta.up { color: #4ade80; } .delta.dn { color: #f87171; }
+.prd > summary { display: flex; align-items: center; gap: 10px; }
 @media (min-width: 560px) { .statgrid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 </style>
 <base target="_blank">
@@ -367,14 +386,13 @@ function normalize(raw) {
     })) : []
   })) : [];
 
-  const planned = new Set();
-  d.plans = Array.isArray(raw.plans) ? raw.plans.filter(Boolean).map(p => ({
+  d.plans = Array.isArray(raw.plans) ? raw.plans.filter(Boolean).map(p => { const inThisPlan = new Set(); return {
     id:String(p.id || uid()), name:String(p.name || ''), desc:String(p.desc || ''), collapsed:!!p.collapsed,
     workoutIds:(Array.isArray(p.workoutIds) ? p.workoutIds : []).map(String).filter(id => {
-      if (planned.has(id) || !d.workouts.some(w => w.id === id)) return false;
-      planned.add(id); return true;
+      if (inThisPlan.has(id) || !d.workouts.some(w => w.id === id)) return false;
+      inThisPlan.add(id); return true;
     })
-  })) : [];
+  }; }) : [];
 
   const libraryByName = new Map();
   const addLibraryItem = (name, muscles = null, custom = false, id = null, equipment = null) => {
@@ -450,6 +468,22 @@ function normalize(raw) {
   d.timerEnd = Number(raw.timerEnd) || null;
   d.bodyweight = Array.isArray(raw.bodyweight) ? raw.bodyweight.filter(x=>x&&Number(x.weight)>0).map(x=>({ date:x.date || new Date().toISOString(), weight:Number(x.weight) })) : [];
 
+  // Repair exercise identity: point every logged exercise at its library item so PRs and history group correctly.
+  {
+    const libById=new Map(d.exercises.map(x=>[x.id,x]));
+    const libByName=new Map(d.exercises.map(x=>[x.name.trim().toLowerCase(),x]));
+    const tmplLib=new Map();
+    for (const w of d.workouts) for (const e of w.ex) if (e.libraryId) tmplLib.set(e.id,e.libraryId);
+    const repair=e=>{
+      if (libById.has(e.exId)) return;
+      const viaTemplate=libById.get(tmplLib.get(e.exId));
+      const item=viaTemplate||libByName.get(String(e.name||'').trim().toLowerCase());
+      if (item) e.exId=item.id;
+    };
+    d.sessions.forEach(s=>s.ex.forEach(repair));
+    if (d.active) d.active.ex.forEach(repair);
+  }
+
   for (const s of d.sessions) {
     const template=d.workouts.find(w=>w.id===s.wid);
     for (const e of s.ex) {
@@ -469,12 +503,13 @@ try {
 
 let view={t:'workouts'};
 let audio=null;
+let openIds=new Set(), tmOpen=false, okOnce=false, curA=null, curD=null, toastT=null;
 
 function save() {
   try {
     localStorage.setItem('lift.v4',JSON.stringify(db));
     localStorage.removeItem('lift.v3'); localStorage.removeItem('lift.v2'); localStorage.removeItem('lift.v1');
-  } catch(e) { alert('Storage is full or unavailable. Export a backup before continuing.'); }
+  } catch(e) { toast('Storage is full or unavailable. Export a backup before continuing.'); }
 }
 
 function remaining() { return db.timerEnd ? Math.max(0,Math.ceil((db.timerEnd-Date.now())/1000)) : 0; }
@@ -482,12 +517,12 @@ function currentWorkout() { return db.workouts.find(w=>w.id===view.id); }
 function currentPlan() { return db.plans.find(p=>p.id===view.id); }
 
 function getExerciseHistory(exId, name, limit = 1) {
-  const n = (name || '').trim().toLowerCase();
+  const kx = makeExKeyer(); const want = kx(exId, name);
   const history = [];
   for (let i = db.sessions.length - 1; i >= 0 && history.length < limit; i--) {
     const s = db.sessions[i];
     if (s.unfinished) continue;
-    const e = s.ex.find(x => x.exId === exId || (x.name || '').trim().toLowerCase() === n);
+    const e = s.ex.find(x => kx(x.exId, x.name) === want);
     if (e) {
       if (isCardioExercise(e)) {
         const times = e.sets.filter(x => x.done || (x.time && x.time.trim())).map(x => (x.time && x.time.trim()) || 'Done');
@@ -507,12 +542,12 @@ function getExerciseHistory(exId, name, limit = 1) {
 function startSession(id) {
   const w=db.workouts.find(x=>x.id===id);
   if(!w) return;
-  if(db.active) { if(!confirm('A workout is already active. Save it as unfinished and start this one?')) return; archiveActive(); }
+  if(db.active) { if(!confirmAct('A workout is already active. Save it as unfinished and start this one?')) return; archiveActive(); }
   db.active={
     id:uid(), wid:w.id, name:w.name || 'Workout', date:new Date().toISOString(), note:'',
     ex:w.ex.map(e=>{
       const setCount = isCardioExercise(e) ? 1 : e.sets;
-      return { exId:e.id, name:e.name, muscles:[...cleanMuscles(e.muscles)], note:'', sets:Array.from({length:setCount},()=>blank(false)) };
+      return { exId:libIdFor(e), name:e.name, muscles:[...cleanMuscles(e.muscles)], note:'', sets:Array.from({length:setCount},()=>blank(false)) };
     })
   };
   db.timerEnd=null; view={t:'session'}; save();
@@ -543,7 +578,7 @@ function updateTemplateFromSession(a) {
     const match = template.ex.find(te => te.name.trim().toLowerCase() === se.name.trim().toLowerCase());
     const workSets = se.sets.filter(s => !s.warm).length;
     return {
-      id: match ? match.id : (se.exId || uid()),
+      id: match ? match.id : uid(),
       libraryId: match?.libraryId || db.exercises.find(x=>x.name.toLowerCase()===se.name.trim().toLowerCase())?.id || '',
       name: se.name, desc: match ? match.desc : '', muscles: [...cleanMuscles(se.muscles || match?.muscles)],
       target: match ? match.target : '8-12', sets: Math.max(1, match ? (isCardioExercise(se) ? match.sets : workSets) : workSets)
@@ -566,7 +601,7 @@ function finish() {
   const hasInput = a.ex.some(e => e.sets.some(s => s.done || s.w !== '' || s.r !== '' || s.rir !== '' || (s.time && s.time.trim() !== '')));
 
   if (!hasInput && !differsFromTemplate) {
-    if (!confirm('No workout data was entered. Discard this session?')) return;
+    if (!confirmAct('No workout data was entered. Discard this session?')) return;
     db.active = null; db.timerEnd = null; view = { t: 'workouts' }; save(); render(); return;
   }
 
@@ -602,16 +637,34 @@ function doneSets(sessions) { return sessions.flatMap(s=>s.ex.filter(e=>!isCardi
 function volume(sets) { return sets.reduce((n,s)=>n+(Number(s.w)||0)*(Number(s.r)||0),0); }
 function estimated1RM(set) { const w=Number(set.w)||0; const r=Number(set.r)||0; if(w<=0 || r<=0) return 0; return w*(1+Math.min(r,30)/30); }
 
+// Canonical identity of an exercise: the library item (by id, then by name). Falls back to the name.
+function makeExKeyer() {
+  const ids=new Map(), names=new Map();
+  for(const x of db.exercises) { ids.set(x.id,x); names.set(String(x.name||'').trim().toLowerCase(),x); }
+  const keyer=(exId,name)=>{
+    const n=String(name||'').trim().toLowerCase();
+    const item=ids.get(exId)||names.get(n);
+    return item ? item.id : 'name:'+n;
+  };
+  keyer.item=(exId,name)=>ids.get(exId)||names.get(String(name||'').trim().toLowerCase())||null;
+  return keyer;
+}
+function libIdFor(entry) {
+  const n=String(entry.name||'').trim().toLowerCase();
+  const item=db.exercises.find(x=>x.id===entry.libraryId)||db.exercises.find(x=>x.name.trim().toLowerCase()===n);
+  return item ? item.id : (entry.libraryId||entry.id);
+}
+
 function getPRs() {
-  const records={};
+  const records={}; const kx=makeExKeyer();
   for(const s of db.sessions) {
     if(s.unfinished) continue;
     for(const e of s.ex) {
       if(isCardioExercise(e)) continue;
       for(const set of e.sets) {
         if(!set.done || set.warm) continue;
-        const key=e.exId || e.name;
-        if(!records[key]) records[key]={ name:e.name, weight:0, e1rm:0, volume:0, muscles:e.muscles };
+        const key=kx(e.exId,e.name); const lib=kx.item(e.exId,e.name);
+        if(!records[key]) records[key]={ key, name:lib?lib.name:e.name, weight:0, e1rm:0, volume:0, muscles:lib?lib.muscles:e.muscles };
         const p=records[key];
         p.weight=Math.max(p.weight,Number(set.w)||0);
         p.e1rm=Math.max(p.e1rm,estimated1RM(set));
@@ -730,7 +783,7 @@ function vPlanEdit() {
   if(!p) return '<button class="btn alt" data-a="go" data-go="workouts">Back</button>';
   const ws=p.workoutIds.map(id=>db.workouts.find(w=>w.id===id)).filter(Boolean);
   const others=db.workouts.filter(w=>!p.workoutIds.includes(w.id));
-  const planOf=id=>db.plans.find(x=>x.workoutIds.includes(id));
+  const plansOf=id=>db.plans.filter(x=>x!==p&&x.workoutIds.includes(id));
   const meta=w=>`${w.ex.length} exercise${w.ex.length===1?'':'s'} · ${workoutSetTotal(w)} sets`;
   return `<div class="page-header"><button class="btn sm ghost" data-a="planback">${ICONS.back} Workouts</button><span class="pill title-pill"><span data-hdr="plan">${esc(hdrLabel('Plan Editor',p.name))}</span></span></div>
     <div class="card"><label style="margin-top:0">Plan name</label><input data-f="planname" value="${esc(p.name)}" placeholder="e.g. Push Pull Legs">
@@ -743,7 +796,7 @@ function vPlanEdit() {
     <button class="btn sm ghost" data-a="plandown" data-wi="${i}" ${i===ws.length-1?'disabled':''}>↓</button>
     <button class="btn sm danger" data-a="planrm" data-id="${w.id}">Remove</button></div></div>`).join('')||'<div class="card empty">No workouts in this plan yet. Add some below.</div>'}
     <div class="section-label">Add workouts</div>
-    ${others.map(w=>{const other=planOf(w.id);return `<div class="card"><div class="row"><div class="sp"><b>${esc(w.name||'Untitled workout')}</b><div class="small num">${meta(w)}${other?' · In '+esc(other.name||'Untitled plan')+' (will move)':''}</div></div><button class="btn sm" data-a="planadd" data-id="${w.id}">${ICONS.plus} Add</button></div></div>`;}).join('')||`<div class="card empty">${db.workouts.length?'Every workout is already in this plan.':'No workouts yet. Create one from the Workouts tab first.'}</div>`}
+    ${others.map(w=>{const other=plansOf(w.id);return `<div class="card"><div class="row"><div class="sp"><b>${esc(w.name||'Untitled workout')}</b><div class="small num">${meta(w)}${other.length?' · Also in '+other.map(x=>esc(x.name||'Untitled plan')).join(', '):''}</div></div><button class="btn sm" data-a="planadd" data-id="${w.id}">${ICONS.plus} Add</button></div></div>`;}).join('')||`<div class="card empty">${db.workouts.length?'Every workout is already in this plan.':'No workouts yet. Create one from the Workouts tab first.'}</div>`}
     <div style="margin-top:24px"><button class="btn danger block" data-a="delplan">Delete plan</button></div>`;
 }
 
@@ -776,13 +829,14 @@ function vSession() {
   const done=a.ex.reduce((n,e)=>n+(isCardioExercise(e)?(isExerciseCompleted(e)?1:0):e.sets.filter(s=>s.done).length),0);
   const pct=Math.round(done/Math.max(1,total)*100);
 
-  return `<div class="page-header"><button class="btn sm ghost" data-a="back">${ICONS.back} Workouts</button><button class="btn sm" data-a="finish">Finish</button></div>
+  return `<div class="page-header"><button class="btn sm ghost" data-a="back">${ICONS.back} Workouts</button><span class="pill num" id="elapsed">${elapsed()}</span><button class="btn sm" data-a="finish">Finish</button></div>
     <h1 style="margin-bottom:14px">${esc(a.name)}</h1>
     <div class="card"><div class="row"><span class="mute"><b class="num" style="color:var(--ink)">${done}</b> of <span class="num">${total}</span> completed</span><span class="sp"></span><span class="pill acc num">${pct}%</span></div>
-    <div class="progress"><i style="width:${pct}%"></i></div>${muscleDiagram(a.ex)}
-    <label>Session notes</label><textarea data-f="sessionnote" rows="2" placeholder="How did this session feel?">${esc(a.note)}</textarea></div>
+    <div class="progress"><i style="width:${pct}%"></i></div>
+    <details id="sess-muscles"><summary class="dsum">Muscles in this workout</summary>${muscleDiagram(a.ex)}</details>
+    <details id="sess-notes"${a.note?' open':''}><summary class="dsum">Session notes</summary><textarea data-f="sessionnote" rows="2" placeholder="How did this session feel?">${esc(a.note)}</textarea></details></div>
     ${a.ex.map((e,ei)=>{
-      const template=db.workouts.find(x=>x.id===a.wid)?.ex.find(x=>x.id===e.exId);
+      const template=db.workouts.find(x=>x.id===a.wid)?.ex.find(x=>x.libraryId===e.exId||x.id===e.exId||x.name.trim().toLowerCase()===(e.name||'').trim().toLowerCase());
       const cardio = isCardioExercise(e);
       const hist = getExerciseHistory(e.exId, e.name, 1);
       const historyHtml = hist.length > 0
@@ -791,13 +845,13 @@ function vSession() {
 
       if (cardio) {
         const s = e.sets[0] || blank(false);
-        return `<div class="card">
+        return `<div class="card" data-ex="${ei}">
           <div class="row" style="align-items:flex-start">
             <div class="sp"><h2>${esc(e.name||'Cardio')}</h2><div class="small" style="margin-top:2px">Cardio</div></div>
             <div class="row" style="gap:4px">
               <button class="btn sm ghost" data-a="exup" data-e="${ei}" ${ei===0?'disabled':''}>↑</button>
               <button class="btn sm ghost" data-a="exdown" data-e="${ei}" ${ei===a.ex.length-1?'disabled':''}>↓</button>
-              <button class="btn sm danger" data-a="rmex" data-e="${ei}" title="Remove exercise">✕</button>
+              <button class="btn sm danger" style="margin-left:10px" data-a="rmex" data-e="${ei}" title="Remove exercise">✕</button>
             </div>
           </div>
           ${template?.desc?`<div class="mute" style="margin-top:6px">${esc(template.desc)}</div>`:''}
@@ -811,14 +865,19 @@ function vSession() {
         </div>`;
       }
 
+      const prev=prevSets(e);
+      if(e.sets.length&&e.sets.every(x=>x.done)&&!(view.open&&view.open[ei])) {
+        const ws=e.sets.filter(x=>x.done&&!x.warm);
+        return `<div class="card done-ex" data-ex="${ei}"><div class="exsum"><span style="color:var(--acc)">${ICONS.check}</span><div class="sp"><b>${esc(e.name)}</b><div class="small num">${ws.map(x=>esc(x.w||'?')+'×'+esc(x.r||'?')).join(', ')||'Done'}</div></div><button class="btn sm ghost" data-a="exopen" data-e="${ei}">Edit</button></div></div>`;
+      }
       let workIdx=0;
-      return `<div class="card">
+      return `<div class="card" data-ex="${ei}">
         <div class="row" style="align-items:flex-start">
           <div class="sp"><h2>${esc(e.name||'Exercise')}</h2><div class="small" style="margin-top:2px">${esc(cleanMuscles(e.muscles).join(', '))} · Target ${esc(template?.target||'8-12')} reps</div></div>
           <div class="row" style="gap:4px">
             <button class="btn sm ghost" data-a="exup" data-e="${ei}" ${ei===0?'disabled':''}>↑</button>
             <button class="btn sm ghost" data-a="exdown" data-e="${ei}" ${ei===a.ex.length-1?'disabled':''}>↓</button>
-            <button class="btn sm danger" data-a="rmex" data-e="${ei}" title="Remove exercise">✕</button>
+            <button class="btn sm danger" style="margin-left:10px" data-a="rmex" data-e="${ei}" title="Remove exercise">✕</button>
           </div>
         </div>
         ${template?.desc?`<div class="mute" style="margin-top:6px">${esc(template.desc)}</div>`:''}
@@ -827,11 +886,12 @@ function vSession() {
         <div class="setgrid head"><span>Set</span><span>lbs</span><span>Reps</span><span>RIR</span><span>Done</span></div>
         ${e.sets.map((s,si)=>{
           if(!s.warm) workIdx++;
+          const pv=s.warm?null:(prev[workIdx-1]||prev[prev.length-1]);
           return `<div class="setgrid ${s.done?'is-done':''}">
             <button class="setbadge ${s.warm?'warm':''}" data-a="togglewarm" data-e="${ei}" data-s="${si}" title="Toggle warm-up">${s.warm?'W':workIdx}</button>
-            <input type="number" inputmode="decimal" step="any" min="0" data-f="w" data-e="${ei}" data-s="${si}" value="${esc(s.w)}" placeholder="—">
-            <input type="number" inputmode="numeric" step="1" min="0" data-f="r" data-e="${ei}" data-s="${si}" value="${esc(s.r)}" placeholder="—">
-            <input type="number" inputmode="numeric" step="1" min="0" data-f="rir" data-e="${ei}" data-s="${si}" value="${esc(s.rir)}" placeholder="—">
+            <input type="number" inputmode="decimal" step="any" min="0" data-f="w" data-e="${ei}" data-s="${si}" value="${esc(s.w)}" placeholder="${esc((pv&&pv.w)||'—')}">
+            <input type="number" inputmode="numeric" step="1" min="0" data-f="r" data-e="${ei}" data-s="${si}" value="${esc(s.r)}" placeholder="${esc((pv&&pv.r)||'—')}">
+            <input type="number" inputmode="numeric" step="1" min="0" data-f="rir" data-e="${ei}" data-s="${si}" value="${esc(s.rir)}" placeholder="${esc((pv&&pv.rir)||'—')}">
             <button class="check ${s.done?'done':''}" data-a="chk" data-e="${ei}" data-s="${si}">${ICONS.check}</button>
           </div>`;
         }).join('')}
@@ -1001,7 +1061,11 @@ function getFilteredPRs(prs, query) {
 
 function prListHtml(filteredPrs) {
   return filteredPrs.length
-    ? filteredPrs.map(p=>`<div class="row exercise"><div class="sp"><b>${esc(p.name)}</b><div class="small">${esc(cleanMuscles(p.muscles).join(', '))}</div></div><div style="text-align:right"><b class="num">${p.weight} lb</b><div class="small num">Est. 1RM ${p.e1rm.toFixed(1)}</div></div></div>`).join('')
+    ? filteredPrs.map(p=>{
+        const sr=e1rmSeries(p.key);
+        const chart=sr.length>1?spark(sr,'var(--acc)')+'<div class="small" style="padding-bottom:10px">Est. 1RM per session</div>':'<div class="small" style="padding-bottom:10px">Log this lift in 2+ sessions to see a trend.</div>';
+        return `<details class="prd"><summary class="row exercise"><div class="sp"><b>${esc(p.name)}</b><div class="small">${esc(cleanMuscles(p.muscles).join(', '))}</div></div><div style="text-align:right"><b class="num">${p.weight} lb</b><div class="small num">Est. 1RM ${p.e1rm.toFixed(1)}</div></div></summary>${chart}</details>`;
+      }).join('')
     : '<div class="empty">Complete working sets to establish personal records.</div>';
 }
 
@@ -1022,13 +1086,16 @@ function vHistory() {
   const filteredPrs = getFilteredPRs(prs, view.prSearch);
   const prOpen = view.prSearch ? ' open' : '';
   const latestBw = db.bodyweight.length ? db.bodyweight[db.bodyweight.length - 1] : null;
+  const prevWk=completed.filter(x=>{const t=nowMs-new Date(x.date).getTime(); return t>=7*86400000&&t<14*86400000;});
+  const pSets=doneSets(prevWk).length, pVol=volume(doneSets(prevWk));
+  const dl=(c,p)=>p>0?`<i class="delta ${c>=p?'up':'dn'}">${c>=p?'↑':'↓'}${Math.abs(Math.round((c-p)/p*100))}%</i>`:'';
 
   return `<div class="page-header"><h1>Progress</h1></div>
     <div class="statgrid">
       <div class="stat"><strong>${completed.length}</strong><span>Finished Workouts</span></div>
       <div class="stat"><strong>${perWeek.toFixed(1)}</strong><span>Workouts / week (4w)</span></div>
-      <div class="stat"><strong>${weekSets.length}</strong><span>Working sets (7d)</span></div>
-      <div class="stat"><strong>${Math.round(weekVolume).toLocaleString()}</strong><span>Volume (lb, 7d)</span></div>
+      <div class="stat"><strong>${weekSets.length}</strong><span>Working sets (7d)${dl(weekSets.length,pSets)}</span></div>
+      <div class="stat"><strong>${Math.round(weekVolume).toLocaleString()}</strong><span>Volume (lb, 7d)${dl(weekVolume,pVol)}</span></div>
     </div>
     <div class="card" style="margin-top:12px">
       <div class="row"><h2>Bodyweight</h2><span class="sp"></span>${latestBw ? `<span class="small num">Latest: <b style="color:var(--ink)">${latestBw.weight} lb</b></span>` : ''}</div>
@@ -1036,6 +1103,7 @@ function vHistory() {
         <input type="number" name="weight" step="any" min="0" placeholder="lbs" style="text-align:left;padding:9px 12px" required>
         <button type="submit" class="btn sm">Log</button>
       </form>
+      ${spark(db.bodyweight.slice(-30).map(b=>Number(b.weight)||0),'var(--wt)')}${db.bodyweight.length>1?`<div class="small">Last ${Math.min(30,db.bodyweight.length)} weigh-ins</div>`:''}
     </div>
     <div style="margin-top:12px">${vCalendar()}</div>
 
@@ -1047,14 +1115,14 @@ function vHistory() {
 
     <details class="card" id="volume-section">
       <summary><h2 style="margin:0">Weekly muscle volume</h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
-      <div><div class="small">Working sets completed in the past 7 days</div>
-      ${Object.entries(muscleVolume).sort((a,b)=>b[1]-a[1]).map(([m,n])=>`<div style="margin-top:14px"><div class="row"><span style="font-weight:600;font-size:13px">${esc(m)}</span><span class="sp"></span><span class="small num">${n} sets</span></div><div class="progress" style="margin-bottom:0"><i style="width:${Math.min(100,n/Math.max(1,...Object.values(muscleVolume))*100)}%"></i></div></div>`).join('')||'<div class="empty">No completed training data in the last 7 days.</div>'}</div>
+      <div><div class="small">Working sets in the past 7 days. Marker at 10 sets, a common rule of thumb.</div>
+      ${Object.entries(muscleVolume).sort((a,b)=>b[1]-a[1]).map(([m,n])=>`<div style="margin-top:14px"><div class="row"><span style="font-weight:600;font-size:13px">${esc(m)}</span><span class="sp"></span><span class="small num">${n} sets</span></div><div class="progress" style="margin-bottom:0"><i style="width:${Math.min(100,n/20*100)}%"></i><b class="mark"></b></div></div>`).join('')||'<div class="empty">No completed training data in the last 7 days.</div>'}</div>
     </details>
 
     <details class="card" id="history-section">
       <summary><h2 style="margin:0">Session History <span class="small" style="color:var(--mute); font-weight:500">(${sessions.length} total)</span></h2><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></summary>
       <div>
-      ${sessions.slice(0, 10).map(s=>`<details><summary><div class="row"><div class="sp"><b>${esc(s.name)}</b><div class="small" style="margin-top:2px">${esc(dateLabel(s.date))} · ${s.ex.length} exercises</div></div><span class="pill ${s.unfinished?'':'acc'}">${s.unfinished?'Unfinished':'Completed'}</span></div></summary>
+      ${sessions.slice(0, 10).map(s=>`<details><summary><div class="row"><div class="sp"><b>${esc(s.name)}</b><div class="small" style="margin-top:2px">${esc(dateLabel(s.date))} · ${s.ex.length} exercises · ${Math.round(volume(doneSets([s]))).toLocaleString()} lb</div></div><span class="pill ${s.unfinished?'':'acc'}">${s.unfinished?'Unfinished':'Completed'}</span></div></summary>
         ${s.note?`<p class="mute" style="margin-top:10px">${esc(s.note)}</p>`:''}
         ${s.ex.map(e=>{
           const cardio = isCardioExercise(e);
@@ -1078,6 +1146,57 @@ function vSettings() {
     <div class="card"><h2>Local storage</h2><p class="mute">All data stays on this device inside browser storage. Export a backup before clearing Safari/browser cache.</p><button class="btn sm danger" style="margin-top:8px" data-a="clear">Reset all data</button></div>`;
 }
 
+document.addEventListener('toggle',e=>{ const d=e.target; if(d.tagName==='DETAILS'&&d.id){ d.open?openIds.add(d.id):openIds.delete(d.id); } },true);
+document.addEventListener('focusin',e=>{ const t=e.target; if(t.matches&&t.matches('input[type=number]')) setTimeout(()=>{ try{ t.select(); }catch(_){} },0); });
+function toast(msg,undo){
+  const old=document.getElementById('toast'); if(old) old.remove();
+  const el=document.createElement('div'); el.id='toast'; el.className='toast';
+  el.innerHTML=`<span class="sp">${esc(msg)}</span>${undo?'<button class="btn sm alt" id="toastundo">Undo</button>':''}`;
+  document.body.appendChild(el);
+  if(undo) el.querySelector('#toastundo').onclick=()=>{ el.remove(); undo(); };
+  clearTimeout(toastT); toastT=setTimeout(()=>el.remove(),undo?6000:3500);
+}
+function ask(msg,yes){
+  const sc=document.createElement('div'); sc.className='scrim';
+  sc.innerHTML=`<div class="sheet"><div style="font-weight:600">${esc(msg)}</div><div class="row"><button class="btn ghost" data-x="0">Cancel</button><button class="btn" data-x="1">Confirm</button></div></div>`;
+  sc.addEventListener('click',e=>{ const x=e.target.dataset.x; if(x===undefined&&e.target!==sc) return; sc.remove(); if(x==='1') yes(); });
+  document.body.appendChild(sc);
+}
+function confirmAct(msg){
+  if(okOnce){ okOnce=false; return true; }
+  ask(msg,()=>{ okOnce=true; act(curA,curD,null); okOnce=false; });
+  return false;
+}
+function elapsed(){
+  if(!db.active) return '';
+  const t=Math.max(0,Math.floor((Date.now()-new Date(db.active.date))/1000)), h=Math.floor(t/3600);
+  return (h?h+':':'')+String(Math.floor(t%3600/60)).padStart(h?2:1,'0')+':'+String(t%60).padStart(2,'0');
+}
+function prevSets(e){
+  const kx=makeExKeyer(); const want=kx(e.exId,e.name);
+  for(let i=db.sessions.length-1;i>=0;i--){
+    const ss=db.sessions[i]; if(ss.unfinished) continue;
+    const x=ss.ex.find(q=>kx(q.exId,q.name)===want);
+    if(x){ const ws=x.sets.filter(t=>t.done&&!t.warm); if(ws.length) return ws; }
+  }
+  return [];
+}
+function spark(vals,color){
+  if(vals.length<2) return '';
+  const mn=Math.min(...vals), mx=Math.max(...vals), r=(mx-mn)||1;
+  const pts=vals.map((v,i)=>(i/(vals.length-1)*300).toFixed(1)+','+(53-(v-mn)/r*50).toFixed(1)).join(' ');
+  return `<svg class="spark" viewBox="0 0 300 56" preserveAspectRatio="none"><polyline fill="none" style="stroke:${color}" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round" points="${pts}"/></svg>`;
+}
+function e1rmSeries(key){
+  const out=[]; const kx=makeExKeyer();
+  for(const ss of db.sessions.slice().sort((a,b)=>new Date(a.date)-new Date(b.date))){
+    if(ss.unfinished) continue; let best=0;
+    for(const e of ss.ex){ if(kx(e.exId,e.name)!==key||isCardioExercise(e)) continue; for(const t of e.sets){ if(t.done&&!t.warm) best=Math.max(best,estimated1RM(t)); } }
+    if(best) out.push(best);
+  }
+  return out;
+}
+
 function render() {
   const t=view.t;
   $('#app').innerHTML=
@@ -1086,16 +1205,19 @@ function render() {
     t==='editsess'?vEditsess():t==='history'?vHistory():t==='settings'?vSettings():vWorkouts();
   const tab=(t==='edit'||t==='planedit'||t==='session'||t==='editsess'||t==='picktemplate')?'workouts':t==='libraryedit'?'library':t;
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.go===tab));
+  openIds.forEach(id=>{ const d=document.getElementById(id); if(d&&!d.open) d.open=true; });
+  if(view.focusEx!=null){ const el=document.querySelector(`[data-ex="${view.focusEx}"]`); view.focusEx=null; if(el) requestAnimationFrame(()=>el.scrollIntoView({behavior:'smooth',block:'start'})); }
   drawTimer();
 }
 
 function drawTimer() {
   const el=$('#timer'), app=$('#app');
   if(!db.active&&!db.timerEnd) { el.style.display='none'; app.style.paddingBottom=''; return; }
-  el.style.display='block'; el.classList.toggle('running', !!db.timerEnd);
-  el.innerHTML=`<div class="row"><div><div id="clock">${db.timerEnd?fmt(remaining()):fmt(db.restSel)}</div><div class="small">${db.timerEnd?'Resting':'Ready for next set'}</div></div><span class="sp"></span>
-    ${db.timerEnd?`<button class="timerbtn" data-a="tm" data-d="-15">−15s</button><button class="timerbtn" data-a="tm" data-d="15">+15s</button><button class="btn sm" data-a="skip">Skip</button>`:''}</div>
-    <div class="chips">${db.rest.map(s=>`<button class="chip ${s===db.restSel?'on':''}" data-a="rest" data-s="${s}">${fmt(s)}</button>`).join('')}</div>`;
+  const run=!!db.timerEnd;
+  el.style.display='block'; el.classList.toggle('running', run); el.classList.toggle('idle', !run&&!tmOpen);
+  el.innerHTML=`<div class="row"><div><div id="clock">${run?fmt(remaining()):fmt(db.restSel)}</div><div class="small">${run?'Resting':'Rest timer'}</div></div><span class="sp"></span>
+    ${run?`<button class="timerbtn" data-a="tm" data-d="-15">−15s</button><button class="timerbtn" data-a="tm" data-d="15">+15s</button><button class="btn sm" data-a="skip">Skip</button>`:''}<button class="timerbtn" data-a="tmtoggle">${tmOpen?'Hide':'Presets'}</button></div>
+    ${tmOpen?`<div class="chips">${db.rest.map(x=>`<button class="chip ${x===db.restSel?'on':''}" data-a="rest" data-s="${x}">${fmt(x)}</button>`).join('')}</div>`:''}`;
   app.style.paddingBottom='calc('+(el.offsetHeight+76+24)+'px + env(safe-area-inset-bottom))';
 }
 
@@ -1140,6 +1262,7 @@ function toggleTagChip(btn) {
 function pickedTags(sel) { const box=$(sel); return cleanMuscles(box ? [...box.querySelectorAll('.chip.on')].map(c=>c.dataset.m) : []); }
 
 function act(a,d,event) {
+  curA=a; curD=d;
   if(event) { event.preventDefault(); event.stopPropagation(); }
   const w=view.id?currentWorkout():null;
   const sess=db.active;
@@ -1168,7 +1291,7 @@ function act(a,d,event) {
     case 'editplan': view={t:'planedit',id:d.id}; break;
     case 'toggleplan': { const p=db.plans.find(x=>x.id===d.id); if(p) p.collapsed=!p.collapsed; break; }
     case 'planback': { const p=currentPlan(); if(p && !p.name.trim() && !p.desc.trim() && !p.workoutIds.length) db.plans=db.plans.filter(x=>x.id!==p.id); view={t:'workouts'}; break; }
-    case 'planadd': { const p=currentPlan(); if(!p || !db.workouts.some(x=>x.id===d.id)) break; db.plans.forEach(x=>{ x.workoutIds=x.workoutIds.filter(id=>id!==d.id); }); p.workoutIds.push(d.id); break; }
+    case 'planadd': { const p=currentPlan(); if(!p || !db.workouts.some(x=>x.id===d.id)) break; if(!p.workoutIds.includes(d.id)) p.workoutIds.push(d.id); break; }
     case 'planrm': { const p=currentPlan(); if(p) p.workoutIds=p.workoutIds.filter(id=>id!==d.id); break; }
     case 'planup': case 'plandown': {
       if (d.pi !== undefined) {
@@ -1181,11 +1304,11 @@ function act(a,d,event) {
       }
       break;
     }
-    case 'delplan': { const p=currentPlan(); if(!p) break; if(!confirm('Delete this plan? Its workouts are kept.')) return; db.plans=db.plans.filter(x=>x.id!==p.id); view={t:'workouts'}; break; }
+    case 'delplan': { const p=currentPlan(); if(!p) break; if(!confirmAct('Delete this plan? Its workouts are kept.')) return; db.plans=db.plans.filter(x=>x.id!==p.id); view={t:'workouts'}; break; }
     case 'editses': {
       const sessionId = String(d.id); const target = db.sessions.find(x => String(x.id) === sessionId);
       if (target) { db.editingSessionId = sessionId; db.editingSession = JSON.parse(JSON.stringify(target)); view = { t: 'editsess' }; }
-      else { alert('Could not find the session to edit. Please refresh and try again.'); }
+      else { toast('Could not find the session to edit. Please refresh and try again.'); }
       break;
     }
     case 'canceleditsess': db.editingSession=null; db.editingSessionId=null; view={t:'history'}; break;
@@ -1195,8 +1318,7 @@ function act(a,d,event) {
       if(src) {
         const copy={...src, id:uid(), name:src.name+' (copy)', ex:src.ex.map(e=>({...e,id:uid(),muscles:[...cleanMuscles(e.muscles)]}))};
         db.workouts.push(copy);
-        const plan=db.plans.find(p=>p.workoutIds.includes(src.id));
-        if(plan) plan.workoutIds.splice(plan.workoutIds.indexOf(src.id)+1,0,copy.id);
+        db.plans.forEach(plan=>{ const at=plan.workoutIds.indexOf(src.id); if(at>=0) plan.workoutIds.splice(at+1,0,copy.id); });
       }
       break;
     }
@@ -1209,9 +1331,9 @@ function act(a,d,event) {
     case 'libraryback': view={t:view.returnTo||'library',id:view.id,search:view.search||'',muscleFilter:view.muscleFilter||'All'}; break;
     case 'savelibrary': {
       const input=$('#libraryname'); const name=(input?.value||'').trim(); const muscles=pickedTags('#librarytags');
-      if(!name) { alert('Enter an exercise name.'); return; }
+      if(!name) { toast('Enter an exercise name.'); return; }
       const duplicate=db.exercises.find(x=>x.id!==view.exerciseId&&x.name.toLowerCase()===name.toLowerCase());
-      if(duplicate) { alert('That exercise is already in your library.'); return; }
+      if(duplicate) { toast('That exercise is already in your library.'); return; }
       const existing=db.exercises.find(x=>x.id===view.exerciseId);
       if(existing) {
         const oldName=existing.name; existing.name=name; existing.muscles=[...muscles];
@@ -1227,8 +1349,8 @@ function act(a,d,event) {
       const targetId = a === 'deletelibraryitem' ? d.id : view.exerciseId;
       const item=db.exercises.find(x=>x.id===targetId); if(!item) return;
       const used=db.workouts.some(x=>x.ex.some(e=>e.libraryId===item.id||e.name.toLowerCase()===item.name.toLowerCase())) || !!db.active?.ex.some(e=>e.exId===item.id||e.name.toLowerCase()===item.name.toLowerCase());
-      if(used) { alert('This exercise is currently used in a workout template or active workout. Remove it from those first before deleting it from the library.'); return; }
-      if(!confirm(`Delete "${item.name}" from your library? Existing workout history will remain.`)) return;
+      if(used) { toast('This exercise is currently used in a workout template or active workout. Remove it from those first before deleting it from the library.'); return; }
+      if(!confirmAct(`Delete "${item.name}" from your library? Existing workout history will remain.`)) return;
       db.exercises=db.exercises.filter(x=>x.id!==item.id);
       if(a==='deletelibrary') view={t:'library',search:view.search||'',muscleFilter:view.muscleFilter||'All'};
       break;
@@ -1247,7 +1369,7 @@ function act(a,d,event) {
       const templateEntry=db.workouts.find(x=>x.id===sess.wid)?.ex.find(x=>x.libraryId===item.id||x.name.toLowerCase()===item.name.toLowerCase());
       const resolvedMuscles = [...cleanMuscles(templateEntry?.muscles || item.muscles)];
       const setCount = resolvedMuscles.includes('Cardio') ? 1 : (templateEntry?.sets||db.defaultSets);
-      sess.ex.push({ exId:templateEntry?.id||item.id, name:item.name, muscles:resolvedMuscles, note:'', sets:Array.from({length:setCount},()=>blank(false)) });
+      sess.ex.push({ exId:item.id, name:item.name, muscles:resolvedMuscles, note:'', sets:Array.from({length:setCount},()=>blank(false)) });
       view={t:'addexsess',search:view.search||'',muscleFilter:view.muscleFilter||'All'};
       break;
     }
@@ -1259,16 +1381,24 @@ function act(a,d,event) {
     case 'up': { const i=Number(d.i); if(i>0) [w.ex[i-1],w.ex[i]]=[w.ex[i],w.ex[i-1]]; break; }
     case 'down': { const i=Number(d.i); if(i<w.ex.length-1) [w.ex[i+1],w.ex[i]]=[w.ex[i],w.ex[i+1]]; break; }
     case 'delex': w.ex.splice(Number(d.i),1); break;
-    case 'delw': if(!confirm('Delete this workout template? Existing history will remain.')) return; db.workouts=db.workouts.filter(x=>x.id!==w.id); db.plans.forEach(p=>{ p.workoutIds=p.workoutIds.filter(id=>id!==w.id); }); view={t:'workouts'}; break;
+    case 'delw': if(!confirmAct('Delete this workout template? Existing history will remain.')) return; db.workouts=db.workouts.filter(x=>x.id!==w.id); db.plans.forEach(p=>{ p.workoutIds=p.workoutIds.filter(id=>id!==w.id); }); view={t:'workouts'}; break;
     case 'start': startSession(d.id); break;
     case 'resume': view={t:'session'}; break;
     case 'chk': {
       const exObj=sess.ex[Number(d.e)];
       const st=exObj.sets[Number(d.s)];
       st.done=!st.done;
+      if(st.done&&!isCardioExercise(exObj)&&st.w===''&&st.r==='') {
+        const pw=prevSets(exObj), k=exObj.sets.slice(0,Number(d.s)+1).filter(q=>!q.warm).length-1;
+        const pv=st.warm?null:(pw[k]||pw[pw.length-1]);
+        if(pv) { st.w=pv.w; st.r=pv.r; if(st.rir==='') st.rir=pv.rir; }
+      }
+      if(st.done&&exObj.sets.every(q=>q.done)) { const nx=sess.ex.findIndex((q,i)=>i>Number(d.e)&&!q.sets.every(z=>z.done)); if(nx>=0) view.focusEx=nx; }
       if(!isCardioExercise(exObj)) { if(st.done) startTimer(db.restSel); else db.timerEnd=null; }
       break;
     }
+    case 'exopen': view.open=view.open||{}; view.open[Number(d.e)]=true; break;
+    case 'tmtoggle': tmOpen=!tmOpen; break;
     case 'chkes': { const st=es.ex[Number(d.e)].sets[Number(d.s)]; st.done=!st.done; break; }
     case 'togglewarm': { const st=sess.ex[Number(d.e)].sets[Number(d.s)]; st.warm=!st.warm; break; }
     case 'togglewarmes': { const st=es.ex[Number(d.e)].sets[Number(d.s)]; st.warm=!st.warm; break; }
@@ -1280,21 +1410,21 @@ function act(a,d,event) {
     case 'rmsetes': if(es.ex[Number(d.e)].sets.length>1) es.ex[Number(d.e)].sets.pop(); break;
     case 'addexsess': view={t:'addexsess',search:'',muscleFilter:'All'}; break;
     case 'backsession': view={t:'session'}; break;
-    case 'rmex': { const ei = Number(d.e); const exName = sess.ex[ei]?.name || 'this exercise'; if(!confirm(`Remove "${exName}" from this workout?`)) return; sess.ex.splice(ei, 1); break; }
+    case 'rmex': { const ei=Number(d.e); const gone=sess.ex.splice(ei,1)[0]; if(gone) toast('Removed '+(gone.name||'exercise'),()=>{ if(db.active){ db.active.ex.splice(ei,0,gone); save(); render(); } }); break; }
     case 'exup': { const ei = Number(d.e); if (ei > 0) [sess.ex[ei - 1], sess.ex[ei]] = [sess.ex[ei], sess.ex[ei - 1]]; break; }
     case 'exdown': { const ei = Number(d.e); if (ei < sess.ex.length - 1) [sess.ex[ei + 1], sess.ex[ei]] = [sess.ex[ei], sess.ex[ei + 1]]; break; }
     case 'addtemplateex': {
       let found = null; for(const w of db.workouts) { const e = w.ex.find(x => x.id === d.id); if(e) { found = e; break; } }
       if(found) {
         const setCount = isCardioExercise(found) ? 1 : found.sets;
-        sess.ex.push({ exId: found.id, name: found.name, muscles: [...cleanMuscles(found.muscles)], note: '', sets: Array.from({length: setCount}, () => blank(false)) });
+        sess.ex.push({ exId: libIdFor(found), name: found.name, muscles: [...cleanMuscles(found.muscles)], note: '', sets: Array.from({length: setCount}, () => blank(false)) });
         view = {t: 'session'};
       }
       break;
     }
     case 'addcustomex': {
       const nameInput = $('#customexname'); const setsInput = $('#customexsets'); const name = nameInput?.value.trim();
-      if(!name) { alert('Enter an exercise name.'); return; }
+      if(!name) { toast('Enter an exercise name.'); return; }
       const muscles = pickedTags('#customextags');
       const numSets = muscles.includes('Cardio') ? 1 : Math.max(1, Math.min(20, Number(setsInput?.value) || db.defaultSets));
       let libraryItem=db.exercises.find(x=>x.name.toLowerCase()===name.toLowerCase());
@@ -1304,13 +1434,13 @@ function act(a,d,event) {
       break;
     }
     case 'finish': finish(); return;
-    case 'delses': if(!confirm('Delete this workout record?')) return; db.sessions=db.sessions.filter(x=>x.id!==d.id); break;
+    case 'delses': { const i=db.sessions.findIndex(x=>x.id===d.id); if(i<0) break; const gone=db.sessions.splice(i,1)[0]; toast('Session deleted',()=>{ db.sessions.splice(i,0,gone); save(); render(); }); break; }
     case 'rest': if(db.active) startTimer(Number(d.s)); else db.restSel=Number(d.s); break;
     case 'tm': if(db.timerEnd) db.timerEnd=Math.max(Date.now()+1000,db.timerEnd+Number(d.d)*1000); break;
     case 'skip': db.timerEnd=null; break;
     case 'export': exportData(); return;
     case 'import': $('#imp').click(); return;
-    case 'clear': if(!confirm('Permanently delete all Lift data stored on this device? Export a backup first.')) return; db=defaults(); view={t:'workouts'}; break;
+    case 'clear': if(!confirmAct('Permanently delete all Lift data stored on this device? Export a backup first.')) return; db=defaults(); view={t:'workouts'}; break;
   }
   save(); render();
 }
@@ -1374,7 +1504,7 @@ document.addEventListener('change',e=>{
   if(d.f==='rest') {
     const n=t.value.split(',').map(x=>Math.round(Number(x.trim()))).filter(x=>Number.isFinite(x)&&x>0&&x<=3600).slice(0,8);
     if(n.length) { db.rest=n; if(!n.includes(db.restSel)) db.restSel=n[0]; save(); render(); }
-    else { alert('Enter at least one timer preset between 1 and 3600 seconds.'); }
+    else { toast('Enter at least one timer preset between 1 and 3600 seconds.'); }
   }
   if(d.f==='eqfilter') { view.equipmentFilter = t.value; render(); return; }
   if(t.id==='imp' && t.files[0]) {
@@ -1385,7 +1515,7 @@ document.addEventListener('change',e=>{
         if(!parsed || !Array.isArray(parsed.workouts) || !Array.isArray(parsed.sessions)) throw new Error('Invalid backup');
         if(!confirm('Replace all Lift data on this device with this backup?')) return;
         db=normalize(parsed); view={t:db.active?'session':'workouts'}; save(); render();
-      } catch(err) { alert('This file is not a valid Lift backup. Your existing data was not changed.'); }
+      } catch(err) { toast('This file is not a valid Lift backup. Your existing data was not changed.'); }
       t.value='';
     };
     reader.readAsText(t.files[0]);
@@ -1400,6 +1530,7 @@ document.addEventListener('submit',e=>{
 });
 
 setInterval(()=>{
+  const ee=$('#elapsed'); if(ee) ee.textContent=elapsed();
   if(!db.timerEnd) return;
   if(remaining()<=0) { db.timerEnd=null; save(); beep(); drawTimer(); return; }
   const c=$('#clock'); if(c) c.textContent=fmt(remaining());

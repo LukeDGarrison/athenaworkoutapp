@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'lift-v12';
+const CACHE = 'lift-v13';
 
 const FILES = [
   './',
